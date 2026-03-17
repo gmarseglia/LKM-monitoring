@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#include <linux/atomic.h>
 
 #define MODNAME "SYSCALL-THROTTLER"
 
@@ -9,13 +10,23 @@
 #define target_func "x64_sys_call"
 
 static struct kprobe the_probe;
+static atomic_t the_counter = ATOMIC_INIT(0);
 
 static int __kprobes handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
-    /* * Using printk_ratelimited prevents system freezes from log flooding
-     * when hooking highly active functions.
-     */
-    printk_ratelimited(KERN_INFO "kprobe: hit %s at %p\n", p->symbol_name, p->addr);
+    // #TODO: why orig_ax works?
+    struct pt_regs *the_regs = (struct pt_regs *)regs->di;
+    unsigned long sys_call_number = the_regs->orig_ax;
+
+    if (sys_call_number == 0)
+    {
+        int counted;
+        counted = atomic_inc_return(&the_counter);
+
+        printk_ratelimited(
+            KERN_INFO "%s: probe hit %d times",
+            MODNAME, counted);
+    }
 
     /* A pre_handler must return 0 unless it handles the fault itself */
     return 0;

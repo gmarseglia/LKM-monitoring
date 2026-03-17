@@ -2,8 +2,10 @@
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
 #include <linux/atomic.h>
+#include <linux/preempt.h>
+#include <linux/irqflags.h>
 
-#define MODNAME "SYSCALL-THROTTLER"
+#define MODNAME "SYSCALL-THROTTLE"
 
 #define AUDIT if (1)
 
@@ -18,14 +20,26 @@ static int __kprobes handler_pre(struct kprobe *p, struct pt_regs *regs)
     struct pt_regs *the_regs = (struct pt_regs *)regs->di;
     unsigned long sys_call_number = the_regs->orig_ax;
 
+    if (preempt_count() == 0)
+    {
+        pr_alert("%s: found preemptable, aborting.", MODNAME);
+        return 0;
+    }
+
+    if (irqs_disabled())
+    {
+        pr_alert("%s: irqs are disabled, aborting.", MODNAME);
+        return 0;
+    }
+
     if (sys_call_number == 0)
     {
         int counted;
         counted = atomic_inc_return(&the_counter);
 
         printk_ratelimited(
-            KERN_INFO "%s: probe hit %d times",
-            MODNAME, counted);
+            KERN_INFO "%s: probe hit %d times, last for pid %d",
+            MODNAME, counted, current->pid);
     }
 
     /* A pre_handler must return 0 unless it handles the fault itself */

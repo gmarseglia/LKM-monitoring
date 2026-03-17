@@ -32,14 +32,15 @@ static int __kprobes handler_pre(struct kprobe *p, struct pt_regs *regs)
         return 0;
     }
 
-    if (sys_call_number == 0)
+    if (current->pid == 14313)
+    // if (sys_call_number == 0 && current->pid == 9140)
     {
         int counted;
         counted = atomic_inc_return(&the_counter);
 
         printk_ratelimited(
-            KERN_INFO "%s: probe hit %d times, last for pid %d",
-            MODNAME, counted, current->pid);
+            KERN_INFO "%s: probe hit %d times, last for pid %d, with ax=%lu",
+            MODNAME, counted, current->pid, sys_call_number);
     }
 
     /* A pre_handler must return 0 unless it handles the fault itself */

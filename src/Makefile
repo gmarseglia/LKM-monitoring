@@ -2,7 +2,7 @@
 obj-m += syscall-throttle.o 
 
 all:
-	bear -- make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 
 
 clean:
 	@mv compile_commands.json /tmp

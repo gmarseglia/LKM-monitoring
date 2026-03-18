@@ -1,22 +1,23 @@
 #define _XOPEN_SOURCE
-#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h> // Header for pid_t
+#include <unistd.h>
 
-int main(int a, char **b)
-{
+int main(int a, char **b) {
 
-	char buff[64];
-	int i = 0;
+  pid_t process_id = getpid();
+  pid_t parent_id = getppid();
 
-	printf("address is %p\n", buff);
+  printf("Current Process ID (PID): %d\n", process_id);
+  printf("Parent Process ID (PPID): %d\n", parent_id);
 
-	while (i < 3)
-	{
-		read(0, buff, 64);
-		i++;
-	}
+  char buff[64];
+  printf("address is %p\n", buff);
 
-	return 0;
+  while (1) {
+    write(1, buff, read(0, buff, 64));
+  }
+
+  return 0;
 }
-

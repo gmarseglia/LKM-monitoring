@@ -1,4 +1,5 @@
 #include <linux/atomic.h>
+#include <linux/delay.h>
 #include <linux/irqflags.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
@@ -33,15 +34,28 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
     return 0;
   }
 
-  if (current->pid == 14313)
-  // if (sys_call_number == 0 && current->pid == 9140)
-  {
+  if (sys_call_number == 1 && current->pid == 20418) {
     int counted;
     counted = atomic_inc_return(&the_counter);
 
     printk_ratelimited(KERN_INFO
                        "%s: probe hit %d times, last for pid %d, with ax=%lu",
                        MODNAME, counted, current->pid, sys_call_number);
+
+    struct kprobe **kprobe_context_p = this_cpu_read(saved_kprobe_context_p);
+
+    this_cpu_write(*kprobe_context_p, NULL);
+
+    preempt_enable();
+
+    msleep(1000 * 5);
+
+    preempt_disable();
+
+    this_cpu_write(*kprobe_context_p, p);
+
+    printk_ratelimited(KERN_INFO "%s: probe %d-th hit has been delayed",
+                       MODNAME, counted);
   }
 
   /* A pre_handler must return 0 unless it handles the fault itself */

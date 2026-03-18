@@ -14,3 +14,17 @@ insmod:
 
 rmmod:
 	sudo rmmod syscall-throttle
+
+untry:
+	-sudo rmmod syscall-throttle
+	$(MAKE) clean
+
+try:
+	$(MAKE) all
+	sudo insmod syscall-throttle.ko
+	sudo dmesg
+
+retry:
+	$(MAKE) untry
+	$(MAKE) try
+

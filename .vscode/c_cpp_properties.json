@@ -9,6 +9,7 @@
                 "/lib/modules/6.12.73+deb13-amd64/build/arch/x86/include/generated"
             ],
             "defines": [
+                "CONFIG_SMP=1",
                 "__KERNEL__",
                 "MODULE"
             ],

@@ -1,3 +1,6 @@
+#include "linux/init.h"
+#include "linux/timer.h"
+#include "linux/types.h"
 #include <linux/atomic.h>
 #include <linux/delay.h>
 #include <linux/irqflags.h>
@@ -5,16 +8,21 @@
 #include <linux/kprobes.h>
 #include <linux/module.h>
 #include <linux/preempt.h>
+#include <linux/sched.h>
 #include <linux/smp.h>
+#include <linux/wait.h>
 
 #define MODNAME "SYSCALL-THROTTLE"
 
-#define AUDIT if (1)
-
 #define target_func "x64_sys_call"
+#define TIMER_INTERVAL 1000
 
 static struct kprobe the_probe;
 static atomic_t the_counter = ATOMIC_INIT(0);
+static atomic_t timer_counter = ATOMIC_INIT(0);
+
+static DECLARE_WAIT_QUEUE_HEAD(my_wait_queue);
+static struct timer_list my_timer;
 
 DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
@@ -34,7 +42,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
     return 0;
   }
 
-  if (sys_call_number == 1 && current->pid == 54017) {
+  if (sys_call_number == 1 && current->pid == 18314) {
     int counted;
     counted = atomic_inc_return(&the_counter);
 
@@ -48,9 +56,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
     this_cpu_write(*kprobe_context_p, NULL);
 
     try_module_get(THIS_MODULE);
+    int current_timer_counter = atomic_read(&timer_counter);
     preempt_enable(); // preempt_enable_no_resched();
 
-    msleep(1000 * 10);
+    wait_event_interruptible(my_wait_queue, atomic_read(&timer_counter) >
+                                                current_timer_counter);
 
     preempt_disable();
     module_put(THIS_MODULE);
@@ -129,12 +139,32 @@ static int load_hack(void) {
   return 0;
 }
 
+static inline void wake_all(void) {
+  atomic_inc(&timer_counter);
+  wake_up_interruptible(&my_wait_queue);
+}
+
+static void timer_callback(struct timer_list *t) {
+  wake_all();
+
+  // Re-arm the timer to fire again in 1 second
+  mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
+}
+
+static void load_timer(void) {
+  timer_setup(&my_timer, timer_callback, 0);
+
+  mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
+}
+
 static int initfn(void) {
   int ret;
 
   pr_info("%s: module correctly loaded\n", MODNAME);
 
   load_hack();
+
+  load_timer();
 
   the_probe.symbol_name = target_func;
   the_probe.pre_handler = pre_handler_throttle;
@@ -151,6 +181,10 @@ static int initfn(void) {
 static void exitfn(void) {
   unregister_kprobe(&the_probe);
   pr_info("%s: kprobe at %p unregistered\n", MODNAME, the_probe.addr);
+
+  del_timer_sync(&my_timer);
+  wake_all();
+  pr_info("%s: timer unregistered\n", MODNAME);
 
   pr_info("%s: module correctly unloaded\n", MODNAME);
 }

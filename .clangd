@@ -1,0 +1,12 @@
+CompileFlags:
+  Remove:
+    - "-mno-fp-ret-in-387"
+    - "-mpreferred-stack-boundary=*"
+    - "-mskip-rax-setup"
+    - "-mindirect-branch=*"
+    - "-mindirect-branch-register"
+    - "-mrecord-mcount"
+    - "-fno-allow-store-data-races"
+    - "-fconserve-stack"
+    - "-falign-jumps=*"
+    - "-fmin-function-alignment=*"

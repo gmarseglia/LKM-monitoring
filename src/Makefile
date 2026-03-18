@@ -9,6 +9,11 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 	-mv -f /tmp/compile_commands.json .
 
+bear:
+	-rm compile_commands.json
+	-$(MAKE) clean
+	bear -- make
+
 insmod:
 	sudo insmod syscall-throttle.ko
 

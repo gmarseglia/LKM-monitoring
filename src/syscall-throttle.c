@@ -47,9 +47,8 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
     this_cpu_write(*kprobe_context_p, NULL);
 
-    // preempt_enable_no_resched();
     try_module_get(THIS_MODULE);
-    preempt_enable();
+    preempt_enable(); // preempt_enable_no_resched();
 
     msleep(1000 * 10);
 

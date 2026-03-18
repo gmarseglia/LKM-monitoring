@@ -65,7 +65,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
   return 0;
 }
 
-void dummy_run(void *arg) {
+static void dummy_run(void *arg) {
   pr_info("%s: dummy running on CPU %d", MODNAME, smp_processor_id());
   return;
 }
@@ -77,7 +77,7 @@ static int __kprobes pre_handler_search(struct kprobe *p,
   pr_info("%s: pre_handler_search running on CPU %d", MODNAME,
           smp_processor_id());
 
-  while (temp > 0) {
+  while ((unsigned long)temp > 0) {
     temp--;
     if ((struct kprobe *)this_cpu_read(*temp) == p) {
       printk("%s: found on CPU %d at %p", MODNAME, smp_processor_id(), temp);
@@ -107,7 +107,7 @@ static int __kprobes pre_handler_search(struct kprobe *p,
   return 0;
 }
 
-int load_hack(void) {
+static int load_hack(void) {
   int ret_search;
   struct kprobe search_probe;
 
@@ -129,7 +129,7 @@ int load_hack(void) {
   return 0;
 }
 
-int init_module(void) {
+static int initfn(void) {
   int ret;
 
   pr_info("%s: module correctly loaded\n", MODNAME);
@@ -148,13 +148,15 @@ int init_module(void) {
   return 0;
 }
 
-void cleanup_module(void) {
+static void exitfn(void) {
   unregister_kprobe(&the_probe);
   pr_info("%s: kprobe at %p unregistered\n", MODNAME, the_probe.addr);
 
   pr_info("%s: module correctly unloaded\n", MODNAME);
 }
 
+module_init(initfn);
+module_exit(exitfn);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Giuseppe Marseglia <g.marseglia.it@gmail.com>");
 MODULE_DESCRIPTION("See README.md");

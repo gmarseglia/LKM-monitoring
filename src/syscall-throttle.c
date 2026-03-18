@@ -34,23 +34,27 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
     return 0;
   }
 
-  if (sys_call_number == 1 && current->pid == 20418) {
+  if (sys_call_number == 1 && current->pid == 54017) {
     int counted;
     counted = atomic_inc_return(&the_counter);
 
-    printk_ratelimited(KERN_INFO
-                       "%s: probe hit %d times, last for pid %d, with ax=%lu",
-                       MODNAME, counted, current->pid, sys_call_number);
+    printk_ratelimited(KERN_INFO "%s: probe hit %d times, last for pid %d, "
+                                 "with ax=%lu, module_refcount=%d",
+                       MODNAME, counted, current->pid, sys_call_number,
+                       module_refcount(THIS_MODULE));
 
     struct kprobe **kprobe_context_p = this_cpu_read(saved_kprobe_context_p);
 
     this_cpu_write(*kprobe_context_p, NULL);
 
+    // preempt_enable_no_resched();
+    try_module_get(THIS_MODULE);
     preempt_enable();
 
-    msleep(1000 * 5);
+    msleep(1000 * 10);
 
     preempt_disable();
+    module_put(THIS_MODULE);
 
     this_cpu_write(*kprobe_context_p, p);
 

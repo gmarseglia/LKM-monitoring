@@ -1,3 +1,4 @@
+#include "asm/preempt.h"
 #include "linux/init.h"
 #include "linux/timer.h"
 #include "linux/types.h"
@@ -16,10 +17,11 @@
 
 #define target_func "x64_sys_call"
 #define TIMER_INTERVAL 1000
+#define CRITICAL_PER_UNIT 1
 
 static struct kprobe the_probe;
-static atomic_t the_counter = ATOMIC_INIT(0);
-static atomic_t timer_counter = ATOMIC_INIT(0);
+static atomic_t critical_counter = ATOMIC_INIT(CRITICAL_PER_UNIT);
+static atomic_t epoch = ATOMIC_INIT(0);
 
 static DECLARE_WAIT_QUEUE_HEAD(my_wait_queue);
 static struct timer_list my_timer;
@@ -43,32 +45,27 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
   }
 
   if (sys_call_number == 1 && current->pid == 18314) {
-    int counted;
-    counted = atomic_inc_return(&the_counter);
 
-    printk_ratelimited(KERN_INFO "%s: probe hit %d times, last for pid %d, "
-                                 "with ax=%lu, module_refcount=%d",
-                       MODNAME, counted, current->pid, sys_call_number,
-                       module_refcount(THIS_MODULE));
+    pr_info("%s: probe hit, last for pid %d, "
+            "with ax=%lu, module_refcount=%d",
+            MODNAME, current->pid, sys_call_number,
+            module_refcount(THIS_MODULE));
 
     struct kprobe **kprobe_context_p = this_cpu_read(saved_kprobe_context_p);
-
     this_cpu_write(*kprobe_context_p, NULL);
 
     try_module_get(THIS_MODULE);
-    int current_timer_counter = atomic_read(&timer_counter);
     preempt_enable(); // preempt_enable_no_resched();
 
-    wait_event_interruptible(my_wait_queue, atomic_read(&timer_counter) >
-                                                current_timer_counter);
+    int begin_epoch = atomic_read(&epoch);
+    wait_event_interruptible(my_wait_queue, atomic_read(&epoch) > begin_epoch);
 
     preempt_disable();
     module_put(THIS_MODULE);
 
     this_cpu_write(*kprobe_context_p, p);
 
-    printk_ratelimited(KERN_INFO "%s: probe %d-th hit has been delayed",
-                       MODNAME, counted);
+    pr_info("%s: probe th hit has been delayed", MODNAME);
   }
 
   /* A pre_handler must return 0 unless it handles the fault itself */
@@ -140,7 +137,7 @@ static int load_hack(void) {
 }
 
 static inline void wake_all(void) {
-  atomic_inc(&timer_counter);
+  atomic_inc(&epoch);
   wake_up_interruptible(&my_wait_queue);
 }
 

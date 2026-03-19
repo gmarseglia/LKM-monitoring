@@ -1,5 +1,5 @@
-#ifndef _SYSCALL_THROTTHLE_H_
-#define _SYSCALL_THROTTHLE_H_
+#ifndef _SYSCALL_THROTTLE_H_
+#define _SYSCALL_THROTTLE_H_
 
 #include <asm/preempt.h>
 #include <linux/atomic.h>
@@ -25,12 +25,11 @@
 #define LOG_FINE if (0)
 #define LOG_FINEST if (0)
 
-#define dispatcher_symbol_name "x64_sys_call"
+#define DISPATCHER_SYMBOL_NAME "x64_sys_call"
 #define TIMER_INTERVAL 1000
 #define CRITICAL_PER_UNIT 3
 
-DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
-DECLARE_WAIT_QUEUE_HEAD(critical_sleeping_wq);
+DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
 struct syscall_throttle_context {
   atomic_t hack_ready_on_cpu;
@@ -40,8 +39,14 @@ struct syscall_throttle_context {
   atomic_t running;
   struct kprobe probe_throttle;
   struct timer_list my_timer;
+  wait_queue_head_t critical_sleeping_wq;
 };
 
-struct syscall_throttle_context *sys_thr_cxt;
+extern struct syscall_throttle_context *sys_thr_cxt;
+
+int load_throttle(void);
+int load_hack_search(void);
+void update_limit_and_wake(void);
+int load_timer(void);
 
 #endif

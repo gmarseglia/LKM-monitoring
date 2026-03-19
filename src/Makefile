@@ -1,5 +1,6 @@
-
 obj-m += syscall-throttle.o 
+
+syscall-throttle-objs := main.o preemptable_kprobe.o throttle.o timer.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 

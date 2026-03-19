@@ -1,18 +1,18 @@
 #include <asm/preempt.h>
-#include <linux/compiler.h>
-#include <linux/minmax.h>
-#include <linux/printk.h>
-#include <linux/timer.h>
-#include <linux/types.h>
 #include <linux/atomic.h>
+#include <linux/compiler.h>
 #include <linux/delay.h>
 #include <linux/irqflags.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/preempt.h>
+#include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
+#include <linux/timer.h>
+#include <linux/types.h>
 #include <linux/wait.h>
 
 #define MODNAME "SYSCALL-THROTTLE"
@@ -153,8 +153,8 @@ static void dummy_run(void *arg) {
 static int __kprobes pre_handler_search(struct kprobe *p,
                                         struct pt_regs *regs) {
 
-  pr_info("%s: pre_handler_search running on CPU %d", MODNAME,
-          smp_processor_id());
+  LOG_FINE pr_info("%s: pre_handler_search running on CPU %d", MODNAME,
+                   smp_processor_id());
 
   /* Brute force search for the position of the kprobe context */
   struct kprobe **temp = (struct kprobe **)&saved_kprobe_context_p;
@@ -162,7 +162,7 @@ static int __kprobes pre_handler_search(struct kprobe *p,
     temp--;
     // current kprobe context is p
     if ((struct kprobe *)this_cpu_read(*temp) == p) {
-      printk("%s: found on CPU %d at %p", MODNAME, smp_processor_id(), temp);
+      pr_info("%s: found on CPU %d at %p", MODNAME, smp_processor_id(), temp);
       this_cpu_write(saved_kprobe_context_p, temp);
       atomic_inc(&hack_ready_on_cpu);
       break;

@@ -1,48 +1,11 @@
-#include <asm/preempt.h>
-#include <linux/atomic.h>
-#include <linux/compiler.h>
-#include <linux/delay.h>
-#include <linux/irqflags.h>
-#include <linux/kernel.h>
-#include <linux/kprobes.h>
-#include <linux/minmax.h>
-#include <linux/module.h>
-#include <linux/preempt.h>
-#include <linux/printk.h>
-#include <linux/sched.h>
-#include <linux/smp.h>
-#include <linux/timer.h>
-#include <linux/types.h>
-#include <linux/wait.h>
-
-#define MODNAME "SYSCALL-THROTTLE"
-
-#define LOG_FINE if (0)
-#define LOG_FINEST if (0)
-
-#define dispatcher_symbol_name "x64_sys_call"
-#define TIMER_INTERVAL 1000
-#define CRITICAL_PER_UNIT 3
-
-static struct kprobe probe_throttle;
-
-static atomic_t hack_ready_on_cpu = ATOMIC_INIT(0);
-static atomic_t crit_req = ATOMIC_INIT(0);
-static atomic_t crit_lim = ATOMIC_INIT(CRITICAL_PER_UNIT);
-static atomic_t crit_sleep = ATOMIC_INIT(0);
-static atomic_t running = ATOMIC_INIT(1);
-
-static DECLARE_WAIT_QUEUE_HEAD(critical_sleeping_wq);
-static struct timer_list my_timer;
-
-DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
+#include "syscall-throttle.h"
 
 /*
   Checks if the syscall request is critical
 */
 static inline int is_critical(int sys_call_number) {
   return (sys_call_number == 1 &&
-          (current->pid == 2673 || current->pid == 2683));
+          (current->pid == 17447 || current->pid == 2683));
 }
 
 /*
@@ -55,7 +18,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
                                           struct pt_regs *regs) {
 
   /* Check if the module is still running */
-  if (atomic_read(&running) == 0)
+  if (atomic_read(&sys_thr_cxt->running) == 0)
     return 0;
 
   struct pt_regs *the_regs = (struct pt_regs *)regs->di;
@@ -74,8 +37,8 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
   /* If syscall request is critical */
   if (unlikely(is_critical(sys_call_number))) {
-    int curr_req = atomic_fetch_inc(&crit_req);
-    int curr_lim = atomic_read(&crit_lim);
+    int curr_req = atomic_fetch_inc(&sys_thr_cxt->crit_req);
+    int curr_lim = atomic_read(&sys_thr_cxt->crit_lim);
 
     LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu", MODNAME,
                      curr_req, current->pid, sys_call_number);
@@ -91,18 +54,18 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
       this_cpu_write(*kprobe_context_p, NULL);
 
       /* Enable preemption */
-      atomic_inc(&crit_sleep);
+      atomic_inc(&sys_thr_cxt->crit_sleep);
       // #TODO: preempt_enable_no_resched() could be better
       preempt_enable();
 
       /* Go to sleep until under limit or when removing the module */
       wait_event_interruptible(critical_sleeping_wq,
-                               curr_req < atomic_read(&crit_lim) ||
-                                   !atomic_read(&running));
+                               curr_req < atomic_read(&sys_thr_cxt->crit_lim) ||
+                                   !atomic_read(&sys_thr_cxt->running));
 
       /* Disable premption */
       preempt_disable();
-      atomic_dec(&crit_sleep);
+      atomic_dec(&sys_thr_cxt->crit_sleep);
 
       /* Restore kprobe context */
       this_cpu_write(*kprobe_context_p, p);
@@ -124,10 +87,10 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 static int load_throttle(void) {
   int ret;
 
-  probe_throttle.symbol_name = dispatcher_symbol_name;
-  probe_throttle.pre_handler = pre_handler_throttle;
+  sys_thr_cxt->probe_throttle.symbol_name = dispatcher_symbol_name;
+  sys_thr_cxt->probe_throttle.pre_handler = pre_handler_throttle;
 
-  ret = register_kprobe(&probe_throttle);
+  ret = register_kprobe(&sys_thr_cxt->probe_throttle);
   if (ret < 0) {
     pr_err("%s: register_kprobe failed, returned %d\n", MODNAME, ret);
     return ret;
@@ -164,7 +127,7 @@ static int __kprobes pre_handler_search(struct kprobe *p,
     if ((struct kprobe *)this_cpu_read(*temp) == p) {
       pr_info("%s: found on CPU %d at %p", MODNAME, smp_processor_id(), temp);
       this_cpu_write(saved_kprobe_context_p, temp);
-      atomic_inc(&hack_ready_on_cpu);
+      atomic_inc(&sys_thr_cxt->hack_ready_on_cpu);
       break;
     }
   }
@@ -199,7 +162,7 @@ static int load_hack_search(void) {
 
   /* Execute "dummy_run" on each CPU to trigger the search probe pre-handler */
   on_each_cpu(dummy_run, NULL, 1);
-  if (atomic_read(&hack_ready_on_cpu) < num_online_cpus()) {
+  if (atomic_read(&sys_thr_cxt->hack_ready_on_cpu) < num_online_cpus()) {
     pr_err("%s: load_hack_search did not complete on every CPU.", MODNAME);
   }
 
@@ -219,10 +182,10 @@ static int load_hack_search(void) {
 static inline void update_limit_and_wake(void) {
 
   /* Updates the limits according the number of requests */
-  int curr_lim = atomic_read(&crit_lim);
-  int curr_req = atomic_read(&crit_req);
+  int curr_lim = atomic_read(&sys_thr_cxt->crit_lim);
+  int curr_req = atomic_read(&sys_thr_cxt->crit_req);
   int new_lim = min(curr_lim, curr_req) + CRITICAL_PER_UNIT;
-  atomic_set(&crit_lim, new_lim);
+  atomic_set(&sys_thr_cxt->crit_lim, new_lim);
 
   if (new_lim != curr_lim)
     LOG_FINE pr_info("%s: curr_lim=%d, curr_req=%d, new_lim=%d", MODNAME,
@@ -241,15 +204,15 @@ static void timer_callback(struct timer_list *t) {
   update_limit_and_wake();
 
   /* Re-arm the timer to fire again in TIMER_INTERVAL milliseconds */
-  mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
+  mod_timer(&sys_thr_cxt->my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
 }
 
 /*
   Load the periodic timer
 */
 static int load_timer(void) {
-  timer_setup(&my_timer, timer_callback, 0);
-  mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
+  timer_setup(&sys_thr_cxt->my_timer, timer_callback, 0);
+  mod_timer(&sys_thr_cxt->my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
   return 0;
 }
 
@@ -258,6 +221,14 @@ static int load_timer(void) {
 */
 static int initfn(void) {
   int ret;
+
+  sys_thr_cxt = kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
+
+  atomic_set(&sys_thr_cxt->hack_ready_on_cpu, 0);
+  atomic_set(&sys_thr_cxt->running, 1);
+  atomic_set(&sys_thr_cxt->crit_req, 0);
+  atomic_set(&sys_thr_cxt->crit_sleep, 0);
+  atomic_set(&sys_thr_cxt->crit_req, CRITICAL_PER_UNIT);
 
   pr_info("%s: module correctly loaded\n", MODNAME);
 
@@ -284,10 +255,10 @@ static void exitfn(void) {
     Set atomic variable to general indication of running 0 indicates that the
     module is starting tear down operations
   */
-  atomic_set(&running, 0);
+  atomic_set(&sys_thr_cxt->running, 0);
 
   /* Delete the timer */
-  del_timer_sync(&my_timer);
+  del_timer_sync(&sys_thr_cxt->my_timer);
   pr_info("%s: timer unregistered\n", MODNAME);
 
   /*
@@ -297,14 +268,16 @@ static void exitfn(void) {
   update_limit_and_wake();
 
   /* Wait for all thread to exit the  */
-  while (atomic_read(&crit_sleep) != 0)
+  while (atomic_read(&sys_thr_cxt->crit_sleep) != 0)
     msleep(20);
   pr_info("%s: all sleeping thread have completed\n", MODNAME);
 
   /* Unregister the kprobe */
-  unregister_kprobe(&probe_throttle);
-  pr_info("%s: kprobe at %p unregistered\n", MODNAME, probe_throttle.addr);
+  unregister_kprobe(&sys_thr_cxt->probe_throttle);
+  pr_info("%s: kprobe at %p unregistered\n", MODNAME,
+          sys_thr_cxt->probe_throttle.addr);
 
+  kfree(sys_thr_cxt);
   pr_info("%s: module correctly unloaded\n", MODNAME);
 }
 

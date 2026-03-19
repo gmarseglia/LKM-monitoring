@@ -5,6 +5,7 @@
 #include <linux/atomic.h>
 #include <linux/compiler.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/gfp_types.h>
 #include <linux/irqflags.h>
 #include <linux/kernel.h>
@@ -45,6 +46,8 @@ struct syscall_throttle_context {
 	wait_queue_head_t critical_sleeping_wq;
 	int Major;
 	struct mutex operation_synchronizer;
+	struct class *my_class;
+	struct device *my_device;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;

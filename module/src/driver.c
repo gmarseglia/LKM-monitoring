@@ -2,12 +2,15 @@
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
-static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
+static long dev_ioctl(struct file *, unsigned int, unsigned long);
+
+static int create_device(void);
+static void destroy_device(void);
 
 static struct file_operations fops = {.owner = THIS_MODULE,
 				      .open = dev_open,
-				      .read = dev_read,
-				      .release = dev_release};
+				      .release = dev_release,
+				      .unlocked_ioctl = dev_ioctl};
 
 static int dev_open(struct inode *inode, struct file *file)
 {
@@ -21,21 +24,12 @@ static int dev_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t dev_read(struct file *filp, char *buff, size_t len, loff_t *off)
+static long
+dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 {
-	char tmp[64];
-	int tmp_len;
-	int ret;
-
-	tmp_len = snprintf(tmp, sizeof(tmp), "hello world");
-
-	mutex_lock(&sys_thr_cxt->operation_synchronizer);
-
-	ret = copy_to_user(buff, tmp, tmp_len);
-
-	mutex_unlock(&sys_thr_cxt->operation_synchronizer);
-
-	return len;
+	pr_info("%s: ioctl invoked with command=%d and param=%lu", MODNAME,
+		command, param);
+	return 0;
 }
 
 int load_driver(void)
@@ -48,11 +42,42 @@ int load_driver(void)
 	pr_info("%s: char device driver registered with Major=%d", MODNAME,
 		Major);
 	sys_thr_cxt->Major = Major;
-	return 0;
+
+	int ret = create_device();
+
+	return ret;
 }
 
 void unload_driver(void)
 {
+	destroy_device();
+
 	// #TODO: check if devices are still open
 	unregister_chrdev(sys_thr_cxt->Major, MODNAME);
+}
+
+static int create_device(void)
+{
+	sys_thr_cxt->my_class = class_create(MODNAME);
+	if (IS_ERR(sys_thr_cxt->my_class)) { // #TODO: what is this?
+		unregister_chrdev(sys_thr_cxt->Major, MODNAME);
+		return PTR_ERR(sys_thr_cxt->my_class);
+	}
+
+	sys_thr_cxt->my_device =
+		device_create(sys_thr_cxt->my_class, NULL,
+			      MKDEV(sys_thr_cxt->Major, 0), NULL, "sys_thr");
+	if (IS_ERR(sys_thr_cxt->my_device)) {
+		class_destroy(sys_thr_cxt->my_class);
+		unregister_chrdev(sys_thr_cxt->Major, MODNAME);
+		return PTR_ERR(sys_thr_cxt->my_device);
+	}
+
+	return 0;
+}
+
+static void destroy_device(void)
+{
+	device_destroy(sys_thr_cxt->my_class, MKDEV(sys_thr_cxt->Major, 0));
+	class_destroy(sys_thr_cxt->my_class);
 }

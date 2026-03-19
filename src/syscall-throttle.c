@@ -1,5 +1,6 @@
 #include "asm/preempt.h"
-#include "linux/init.h"
+#include "linux/minmax.h"
+#include "linux/printk.h"
 #include "linux/timer.h"
 #include "linux/types.h"
 #include <linux/atomic.h>
@@ -15,13 +16,17 @@
 
 #define MODNAME "SYSCALL-THROTTLE"
 
+#define LOG_FINE if (0)
+
 #define target_func "x64_sys_call"
 #define TIMER_INTERVAL 1000
-#define CRITICAL_PER_UNIT 1
+#define CRITICAL_PER_UNIT 3
 
 static struct kprobe the_probe;
-static atomic_t critical_counter = ATOMIC_INIT(CRITICAL_PER_UNIT);
-static atomic_t epoch = ATOMIC_INIT(0);
+static atomic_t crit_req = ATOMIC_INIT(0);
+static atomic_t crit_lim = ATOMIC_INIT(CRITICAL_PER_UNIT);
+static atomic_t crit_sleep = ATOMIC_INIT(0);
+static atomic_t running = ATOMIC_INIT(1);
 
 static DECLARE_WAIT_QUEUE_HEAD(my_wait_queue);
 static struct timer_list my_timer;
@@ -30,6 +35,10 @@ DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
 static int __kprobes pre_handler_throttle(struct kprobe *p,
                                           struct pt_regs *regs) {
+
+  if (atomic_read(&running) == 0)
+    return 0;
+
   // #TODO: why orig_ax works?
   struct pt_regs *the_regs = (struct pt_regs *)regs->di;
   unsigned long sys_call_number = the_regs->orig_ax;
@@ -44,31 +53,58 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
     return 0;
   }
 
-  if (sys_call_number == 1 && current->pid == 18314) {
+  if (sys_call_number == 1 && (current->pid == 2673 || current->pid == 2683)) {
+    int curr_req = atomic_fetch_inc(&crit_req);
+    int curr_lim = atomic_read(&crit_lim);
 
-    pr_info("%s: probe hit, last for pid %d, "
-            "with ax=%lu, module_refcount=%d",
-            MODNAME, current->pid, sys_call_number,
-            module_refcount(THIS_MODULE));
+    LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu", MODNAME,
+                     curr_req, current->pid, sys_call_number);
 
-    struct kprobe **kprobe_context_p = this_cpu_read(saved_kprobe_context_p);
-    this_cpu_write(*kprobe_context_p, NULL);
+    if (curr_req >= curr_lim) {
+      LOG_FINE pr_info(
+          "%s: probe #%05d must be delayed, curr_req=%d, curr_lim=%d", MODNAME,
+          curr_req, curr_req, curr_lim);
 
-    try_module_get(THIS_MODULE);
-    preempt_enable(); // preempt_enable_no_resched();
+      struct kprobe **kprobe_context_p = this_cpu_read(saved_kprobe_context_p);
+      this_cpu_write(*kprobe_context_p, NULL);
 
-    int begin_epoch = atomic_read(&epoch);
-    wait_event_interruptible(my_wait_queue, atomic_read(&epoch) > begin_epoch);
+      atomic_inc(&crit_sleep);
+      // #TODO: preempt_enable_no_resched() could be better
+      preempt_enable();
 
-    preempt_disable();
-    module_put(THIS_MODULE);
+      wait_event_interruptible(my_wait_queue,
+                               curr_req < atomic_read(&crit_lim) ||
+                                   !atomic_read(&running));
 
-    this_cpu_write(*kprobe_context_p, p);
+      preempt_disable();
+      atomic_dec(&crit_sleep);
 
-    pr_info("%s: probe th hit has been delayed", MODNAME);
+      this_cpu_write(*kprobe_context_p, p);
+
+      LOG_FINE pr_info("%s: probe #%05d has completed delay", MODNAME,
+                       curr_req);
+    }
+
+    pr_info("%s: probe #%05d completed, for pid %d", MODNAME, curr_req,
+            current->pid);
   }
 
   /* A pre_handler must return 0 unless it handles the fault itself */
+  return 0;
+}
+
+static int load_throttle(void) {
+  int ret;
+
+  the_probe.symbol_name = target_func;
+  the_probe.pre_handler = pre_handler_throttle;
+
+  ret = register_kprobe(&the_probe);
+  if (ret < 0) {
+    pr_err("%s: register_kprobe failed, returned %d\n", MODNAME, ret);
+    return ret;
+  }
+
   return 0;
 }
 
@@ -136,22 +172,32 @@ static int load_hack(void) {
   return 0;
 }
 
-static inline void wake_all(void) {
-  atomic_inc(&epoch);
+static inline void wake_sleeping(void) {
+  int curr_lim = atomic_read(&crit_lim);
+  int curr_req = atomic_read(&crit_req);
+  int new_lim = min(curr_lim, curr_req) + CRITICAL_PER_UNIT;
+  atomic_set(&crit_lim, new_lim);
+
+  if (new_lim != curr_lim)
+    LOG_FINE pr_info("%s: curr_lim=%d, curr_req=%d, new_lim=%d", MODNAME,
+                     curr_lim, curr_req, new_lim);
+
   wake_up_interruptible(&my_wait_queue);
 }
 
 static void timer_callback(struct timer_list *t) {
-  wake_all();
+  wake_sleeping();
 
   // Re-arm the timer to fire again in 1 second
   mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
 }
 
-static void load_timer(void) {
+static int load_timer(void) {
   timer_setup(&my_timer, timer_callback, 0);
 
   mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
+
+  return 0;
 }
 
 static int initfn(void) {
@@ -159,29 +205,34 @@ static int initfn(void) {
 
   pr_info("%s: module correctly loaded\n", MODNAME);
 
-  load_hack();
-
-  load_timer();
-
-  the_probe.symbol_name = target_func;
-  the_probe.pre_handler = pre_handler_throttle;
-
-  ret = register_kprobe(&the_probe);
-  if (ret < 0) {
-    pr_err("%s: register_kprobe failed, returned %d\n", MODNAME, ret);
+  ret = load_hack();
+  if (ret > 0)
     return ret;
-  }
+
+  ret = load_timer();
+  if (ret > 0)
+    return ret;
+
+  ret = load_throttle();
+  if (ret > 0)
+    return ret;
 
   return 0;
 }
 
 static void exitfn(void) {
+  atomic_set(&running, 0);
+
   unregister_kprobe(&the_probe);
   pr_info("%s: kprobe at %p unregistered\n", MODNAME, the_probe.addr);
 
   del_timer_sync(&my_timer);
-  wake_all();
   pr_info("%s: timer unregistered\n", MODNAME);
+
+  wake_sleeping();
+  while (atomic_read(&crit_sleep) != 0)
+    msleep(20);
+  pr_info("%s: all sleeping thread have completed\n", MODNAME);
 
   pr_info("%s: module correctly unloaded\n", MODNAME);
 }

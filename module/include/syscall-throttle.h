@@ -11,17 +11,20 @@
 #include <linux/kprobes.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
+#include <linux/sprintf.h>
 #include <linux/timer.h>
 #include <linux/types.h>
 #include <linux/wait.h>
 
 #define MODNAME "SYSCALL-THROTTLE"
 
+#define LOG if (0)
 #define LOG_FINE if (0)
 #define LOG_FINEST if (0)
 
@@ -40,6 +43,8 @@ struct syscall_throttle_context {
 	struct kprobe probe_throttle;
 	struct timer_list periodic_timer;
 	wait_queue_head_t critical_sleeping_wq;
+	int Major;
+	struct mutex operation_synchronizer;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;
@@ -48,5 +53,7 @@ int load_throttle(void);
 int load_hack_search(void);
 void update_limit_and_wake(void);
 int load_timer(void);
+int load_driver(void);
+void unload_driver(void);
 
 #endif

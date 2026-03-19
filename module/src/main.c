@@ -19,8 +19,13 @@ static int initfn(void)
 	atomic_set(&sys_thr_cxt->crit_sleep, 0);
 	atomic_set(&sys_thr_cxt->crit_req, CRITICAL_PER_UNIT);
 	init_waitqueue_head(&sys_thr_cxt->critical_sleeping_wq);
+	mutex_init(&sys_thr_cxt->operation_synchronizer);
 
 	pr_info("%s: module correctly loaded\n", MODNAME);
+
+	ret = load_driver();
+	if (ret > 0)
+		return ret;
 
 	ret = load_hack_search();
 	if (ret > 0)
@@ -47,6 +52,9 @@ static void exitfn(void)
 	  the module is starting tear down operations
 	*/
 	atomic_set(&sys_thr_cxt->running, 0);
+
+	/* Unload the driver */
+	unload_driver();
 
 	/* Delete the timer */
 	del_timer_sync(&sys_thr_cxt->periodic_timer);

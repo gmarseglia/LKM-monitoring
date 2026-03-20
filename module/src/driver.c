@@ -1,4 +1,7 @@
+#include "syscall-ioctl.h"
 #include "syscall-throttle.h"
+
+#define MAX_STR_LEN 64
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -24,11 +27,40 @@ static int dev_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int convert_to_string(unsigned long param, char *str_param)
+{
+	int str_len;
+	str_len = strncpy_from_user(str_param, (char *)param, MAX_STR_LEN - 1);
+	str_param[str_len] = '\0';
+
+	return str_len;
+}
+
 static long
 dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 {
 	pr_info("%s: ioctl invoked with command=%d and param=%lu", MODNAME,
-		command, param);
+		_IOC_NR(command), param);
+
+	char str_param[64];
+
+	switch (command) {
+	case IOCTL_REGISTER_PID:
+		// #TODO: check results better
+		if (convert_to_string(param, str_param) > 0)
+			register_critical(str_param,
+					  &sys_thr_cxt->pids_registry);
+		break;
+	case IOCTL_UNREGISTER_PID:
+		if (convert_to_string(param, str_param) > 0)
+			unregister_critical(str_param,
+					    &sys_thr_cxt->pids_registry);
+		break;
+	default:
+		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
+		return -ENOTTY;
+	}
+
 	return 0;
 }
 

@@ -1,11 +1,14 @@
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
 #define _XOPEN_SOURCE
-#define _POSIX_C_SOURCE 199309L
+#include "syscall-ioctl.h"
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <sys/types.h> // Header for pid_t
 #include <time.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
 
 #define DEVICE_PATH "/dev/sys_thr"
 
@@ -16,7 +19,7 @@ void msleep(long ms) {
   nanosleep(&ts, NULL);
 }
 
-int main(int a, char **b) {
+int main(int argc, char **argv) {
 
   pid_t process_id = getpid();
   pid_t parent_id = getppid();
@@ -31,7 +34,28 @@ int main(int a, char **b) {
     return 1;
   }
 
-  ioctl(fd_char, 1, 100);
+  unsigned int command;
+  unsigned int argv1;
+  sscanf(argv[1], "%d", &argv1);
+  switch (argv1) {
+  case 1:
+    command = IOCTL_REGISTER_PID;
+    break;
+  case 2:
+    command = IOCTL_UNREGISTER_PID;
+    break;
+  default:
+    printf("got command=%d\n", command);
+    return -1;
+  }
+
+  // unsigned long param;
+  // sscanf(argv[2], "%lu", &param);
+  // printf("command=%d, param=%lu", command, param);
+
+  if (ioctl(fd_char, command, argv[2]) < 0) {
+    printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
+  }
 
   close(fd_char);
 

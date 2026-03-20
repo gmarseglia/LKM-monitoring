@@ -1,3 +1,4 @@
+#include "linux/slab.h"
 #include "syscall-throttle.h"
 
 /*
@@ -20,15 +21,6 @@ void update_limit_and_wake(void)
 
 	/* Wakes up the event wait queue */
 	wake_up_interruptible(&sys_thr_cxt->critical_sleeping_wq);
-}
-
-/*
-  Checks if the syscall request is critical
-*/
-static inline int is_critical(int sys_call_number)
-{
-	return (sys_call_number == 1 &&
-		(current->pid == 17447 || current->pid == 2683));
 }
 
 /*
@@ -104,8 +96,8 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 					 MODNAME, curr_req);
 		}
 
-		pr_info("%s: probe #%05d completed, for pid %d", MODNAME,
-			curr_req, current->pid);
+		LOG pr_info("%s: probe #%05d completed, for pid %d", MODNAME,
+			    curr_req, current->pid);
 	}
 
 	return 0;

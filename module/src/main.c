@@ -24,19 +24,23 @@ static int initfn(void)
 	pr_info("%s: module correctly loaded\n", MODNAME);
 
 	ret = load_driver();
-	if (ret > 0)
+	if (ret != 0)
 		return ret;
 
 	ret = load_hack_search();
-	if (ret > 0)
+	if (ret != 0)
 		return ret;
 
 	ret = load_timer();
-	if (ret > 0)
+	if (ret != 0)
+		return ret;
+
+	ret = load_monitor();
+	if (ret != 0)
 		return ret;
 
 	ret = load_throttle();
-	if (ret > 0)
+	if (ret != 0)
 		return ret;
 
 	return 0;
@@ -75,6 +79,9 @@ static void exitfn(void)
 	unregister_kprobe(&sys_thr_cxt->probe_throttle);
 	pr_info("%s: kprobe at %p unregistered\n", MODNAME,
 		sys_thr_cxt->probe_throttle.addr);
+
+	/* Unload the monitor */
+	unload_monitor();
 
 	kfree(sys_thr_cxt);
 	pr_info("%s: module correctly unloaded\n", MODNAME);

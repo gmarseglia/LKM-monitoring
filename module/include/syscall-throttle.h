@@ -25,7 +25,7 @@
 
 #define MODNAME "SYSCALL-THROTTLE"
 
-#define LOG if (0)
+#define LOG if (1)
 #define LOG_FINE if (0)
 #define LOG_FINEST if (0)
 
@@ -48,15 +48,23 @@ struct syscall_throttle_context {
 	struct mutex operation_synchronizer;
 	struct class *my_class;
 	struct device *my_device;
+	struct rhashtable pids_registry;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;
 
 int load_throttle(void);
 int load_hack_search(void);
-void update_limit_and_wake(void);
 int load_timer(void);
 int load_driver(void);
 void unload_driver(void);
+int load_monitor(void);
+void unload_monitor(void);
+
+void update_limit_and_wake(void);
+int register_critical(char *, struct rhashtable *);
+void unregister_critical(char *, struct rhashtable *);
+bool is_registered(char *, struct rhashtable *);
+int is_critical(int);
 
 #endif

@@ -43,18 +43,27 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		_IOC_NR(command), param);
 
 	char str_param[64];
+	int nr;
 
 	switch (command) {
+	case IOCTL_REGISTER_NR:
+		nr = (int)param;
+		register_critical_num(nr);
+		break;
+	case IOCTL_UNREGISTER_NR:
+		nr = (int)param;
+		unregister_critical_num(nr);
+		break;
 	case IOCTL_REGISTER_PID:
 		// #TODO: check results better
 		if (convert_to_string(param, str_param) > 0)
-			register_critical(str_param,
-					  &sys_thr_cxt->pids_registry);
+			register_critical_str(str_param,
+					      &sys_thr_cxt->pids_registry);
 		break;
 	case IOCTL_UNREGISTER_PID:
 		if (convert_to_string(param, str_param) > 0)
-			unregister_critical(str_param,
-					    &sys_thr_cxt->pids_registry);
+			unregister_critical_str(str_param,
+						&sys_thr_cxt->pids_registry);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);

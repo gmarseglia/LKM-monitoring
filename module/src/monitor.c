@@ -1,9 +1,4 @@
 #include "syscall-throttle.h"
-#include <linux/jhash.h>
-#include <linux/printk.h>
-#include <linux/rcutree.h>
-#include <linux/rhashtable-types.h>
-#include <linux/rhashtable.h>
 
 #define MAX_STR_LEN 64
 
@@ -43,7 +38,7 @@ static struct rhashtable_params registry_params = {
 	.automatic_shrinking = true, /* Keeps memory usage low */
 };
 
-int register_critical(char *new_str, struct rhashtable *ht)
+int register_critical_str(char *new_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
 	int err;
@@ -65,7 +60,7 @@ int register_critical(char *new_str, struct rhashtable *ht)
 	return 0;
 }
 
-void unregister_critical(char *target_str, struct rhashtable *ht)
+void unregister_critical_str(char *target_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
 
@@ -86,7 +81,7 @@ void unregister_critical(char *target_str, struct rhashtable *ht)
 	}
 }
 
-bool is_registered(char *search_str, struct rhashtable *ht)
+static bool is_registered_str(char *search_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
 	bool found = false;
@@ -105,20 +100,32 @@ bool is_registered(char *search_str, struct rhashtable *ht)
 	return found;
 }
 
+int register_critical_num(unsigned int nr)
+{
+	set_bit(nr, sys_thr_cxt->sys_numbers_registry);
+	return 0;
+}
+
+void unregister_critical_num(unsigned int nr)
+{
+	clear_bit(nr, sys_thr_cxt->sys_numbers_registry);
+}
+
 /*
   Checks if the syscall request is critical
 */
-int is_critical(int sys_call_number)
+int is_critical(int nr)
 {
 	/* Check syscall */
-	if (sys_call_number != 1)
+
+	if (!test_bit(nr, sys_thr_cxt->sys_numbers_registry))
 		return 0;
 
 	/* Check PID */
 	char pid[64];
 	snprintf(pid, sizeof(pid), "%d", current->pid);
 
-	bool pid_found = is_registered(pid, &sys_thr_cxt->pids_registry);
+	bool pid_found = is_registered_str(pid, &sys_thr_cxt->pids_registry);
 
 	return (pid_found);
 }

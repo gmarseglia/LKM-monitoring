@@ -1,10 +1,10 @@
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#define _XOPEN_SOURCE
+// #define _XOPEN_SOURCE
 #include "syscall-ioctl.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h> // Header for pid_t
 #include <time.h>
@@ -34,27 +34,34 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  unsigned int command;
-  unsigned int argv1;
+  unsigned long COMMANDS[] = {IOCTL_REGISTER_NR, IOCTL_UNREGISTER_NR,
+                              IOCTL_REGISTER_PID, IOCTL_UNREGISTER_PID};
+
+  unsigned long command = -1;
+  int argv1;
+  int argv2;
+
   sscanf(argv[1], "%d", &argv1);
-  switch (argv1) {
-  case 1:
-    command = IOCTL_REGISTER_PID;
-    break;
-  case 2:
-    command = IOCTL_UNREGISTER_PID;
-    break;
-  default:
-    printf("got command=%d\n", command);
-    return -1;
+  if (argv1 >= 0 && argv1 < sizeof(COMMANDS)) {
+    command = COMMANDS[argv1];
   }
 
-  // unsigned long param;
-  // sscanf(argv[2], "%lu", &param);
-  // printf("command=%d, param=%lu", command, param);
-
-  if (ioctl(fd_char, command, argv[2]) < 0) {
-    printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
+  switch (command) {
+  case IOCTL_REGISTER_NR:
+  case IOCTL_UNREGISTER_NR:
+    sscanf(argv[2], "%d", &argv2);
+    if (ioctl(fd_char, command, argv2) < 0) {
+      printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
+    }
+    break;
+  case IOCTL_REGISTER_PID:
+  case IOCTL_UNREGISTER_PID:
+    if (ioctl(fd_char, command, argv[2]) < 0) {
+      printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
+    }
+    break;
+  default:
+    printf("argv[1]=%d is outside limits.", argv1);
   }
 
   close(fd_char);

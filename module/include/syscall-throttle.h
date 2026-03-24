@@ -3,11 +3,13 @@
 
 #include <asm/preempt.h>
 #include <linux/atomic.h>
+#include <linux/bitmap.h>
 #include <linux/compiler.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gfp_types.h>
 #include <linux/irqflags.h>
+#include <linux/jhash.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
 #include <linux/minmax.h>
@@ -15,6 +17,9 @@
 #include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
+#include <linux/rcutree.h>
+#include <linux/rhashtable-types.h>
+#include <linux/rhashtable.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
@@ -32,6 +37,7 @@
 #define DISPATCHER_SYMBOL_NAME "x64_sys_call"
 #define TIMER_INTERVAL 1000
 #define CRITICAL_PER_UNIT 3
+#define MAX_NR 323
 
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
@@ -48,6 +54,7 @@ struct syscall_throttle_context {
 	struct mutex operation_synchronizer;
 	struct class *my_class;
 	struct device *my_device;
+	unsigned long *sys_numbers_registry;
 	struct rhashtable pids_registry;
 };
 
@@ -62,9 +69,10 @@ int load_monitor(void);
 void unload_monitor(void);
 
 void update_limit_and_wake(void);
-int register_critical(char *, struct rhashtable *);
-void unregister_critical(char *, struct rhashtable *);
-bool is_registered(char *, struct rhashtable *);
+int register_critical_num(unsigned int);
+void unregister_critical_num(unsigned int);
+int register_critical_str(char *, struct rhashtable *);
+void unregister_critical_str(char *, struct rhashtable *);
 int is_critical(int);
 
 #endif

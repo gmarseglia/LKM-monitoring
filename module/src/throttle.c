@@ -1,3 +1,4 @@
+#include "linux/stddef.h"
 #include "syscall-throttle.h"
 
 /*
@@ -25,7 +26,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 {
 
 	/* Check if the module is still running */
-	if (atomic_read(&sys_thr_cxt->running) == 0)
+	if (atomic_read(&sys_thr_cxt->throttle_running) == false)
 		return 0;
 
 	struct pt_regs *the_regs = (struct pt_regs *)regs->di;
@@ -69,13 +70,16 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			// #TODO: preempt_enable_no_resched() could be better
 			preempt_enable();
 
-			/* Go to sleep until under limit or when removing the
-			 * module */
+			/* Go to sleep, and wake up when under limit or when
+			 * throttling is off */
 			wait_event_interruptible(
 				sys_thr_cxt->critical_sleeping_wq,
 				atomic_dec_return(&sys_thr_cxt->crit_avail) >=
 						0 ||
-					!atomic_read(&sys_thr_cxt->running));
+					atomic_read(
+						&sys_thr_cxt
+							 ->throttle_running) ==
+						false);
 
 			/* Disable premption */
 			preempt_disable();

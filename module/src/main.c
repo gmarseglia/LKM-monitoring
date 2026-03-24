@@ -14,7 +14,7 @@ static int initfn(void)
 		kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
 
 	atomic_set(&sys_thr_cxt->hack_ready_on_cpu, 0);
-	atomic_set(&sys_thr_cxt->running, 1);
+	atomic_set(&sys_thr_cxt->throttle_running, false);
 	atomic_set(&sys_thr_cxt->crit_req, 0);
 	atomic_set(&sys_thr_cxt->crit_sleep, 0);
 	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
@@ -55,7 +55,7 @@ static void exitfn(void)
 	  Set atomic variable to general indication of running 0 indicates that
 	  the module is starting tear down operations
 	*/
-	atomic_set(&sys_thr_cxt->running, 0);
+	atomic_set(&sys_thr_cxt->throttle_running, 0);
 
 	/* Unload the driver */
 	unload_driver();

@@ -46,22 +46,31 @@
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
 struct syscall_throttle_context {
+	/* For interruptible kprobes */
 	atomic_t hack_ready_on_cpu;
-	atomic_t crit_req;
-	atomic_t crit_avail;
-	atomic_t crit_sleep;
-	atomic_t running;
-	struct kprobe probe_throttle;
-	struct timer_list periodic_timer;
-	wait_queue_head_t critical_sleeping_wq;
-	int Major;
-	struct mutex operation_synchronizer;
-	struct class *my_class;
-	struct device *my_device;
+
+	/* For monitoring */
 	unsigned long *sys_numbers_registry;
 	struct rhashtable pids_registry;
 	struct rhashtable euid_registry;
 	struct rhashtable prog_names_registry;
+
+	/* For throttling */
+	struct kprobe probe_throttle;
+	atomic_t throttle_running;
+	atomic_t crit_req;
+	atomic_t crit_avail;
+	atomic_t crit_sleep;
+
+	/* For sleep/wakeup */
+	struct timer_list periodic_timer;
+	wait_queue_head_t critical_sleeping_wq;
+
+	/* For driver */
+	int Major;
+	struct mutex operation_synchronizer;
+	struct class *my_class;
+	struct device *my_device;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;

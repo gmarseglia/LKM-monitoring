@@ -1,4 +1,3 @@
-#include "linux/slab.h"
 #include "syscall-throttle.h"
 
 /*
@@ -8,16 +7,8 @@
 */
 void update_limit_and_wake(void)
 {
-
 	/* Updates the limits according the number of requests */
-	int curr_lim = atomic_read(&sys_thr_cxt->crit_lim);
-	int curr_req = atomic_read(&sys_thr_cxt->crit_req);
-	int new_lim = min(curr_lim, curr_req) + CRITICAL_PER_UNIT;
-	atomic_set(&sys_thr_cxt->crit_lim, new_lim);
-
-	if (new_lim != curr_lim)
-		LOG_FINE pr_info("%s: curr_lim=%d, curr_req=%d, new_lim=%d",
-				 MODNAME, curr_lim, curr_req, new_lim);
+	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
 
 	/* Wakes up the event wait queue */
 	wake_up_interruptible(&sys_thr_cxt->critical_sleeping_wq);
@@ -53,21 +44,22 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 	/* If syscall request is critical */
 	if (unlikely(is_critical(sys_call_number))) {
+		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&sys_thr_cxt->crit_req);
-		int curr_lim = atomic_read(&sys_thr_cxt->crit_lim);
 
 		LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu",
 				 MODNAME, curr_req, current->pid,
 				 sys_call_number);
 
-		/* If syscall request is critical and over limit */
-		if (curr_req >= curr_lim) {
+		/* If curr_avail < 0 ==> syscall has to be delayed */
+		if (atomic_dec_return(&sys_thr_cxt->crit_avail) < 0) {
+			/* If here, then syscall request has to be blocked */
 			LOG_FINE pr_info("%s: probe #%05d must be delayed, "
-					 "curr_req=%d, curr_lim=%d",
-					 MODNAME, curr_req, curr_req, curr_lim);
+					 "curr_req=%d",
+					 MODNAME, curr_req, curr_req);
 
-			/* Write NULL in the kprobe context in the per-CPU
-			 * memory */
+			/* Write NULL in the kprobe context in the
+			 * per-CPU memory */
 			struct kprobe **kprobe_context_p =
 				this_cpu_read(saved_kprobe_context_p);
 			this_cpu_write(*kprobe_context_p, NULL);
@@ -81,8 +73,8 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			 * module */
 			wait_event_interruptible(
 				sys_thr_cxt->critical_sleeping_wq,
-				curr_req < atomic_read(
-						   &sys_thr_cxt->crit_lim) ||
+				atomic_dec_return(&sys_thr_cxt->crit_avail) >=
+						0 ||
 					!atomic_read(&sys_thr_cxt->running));
 
 			/* Disable premption */

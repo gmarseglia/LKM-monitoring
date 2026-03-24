@@ -18,6 +18,7 @@ static int initfn(void)
 	atomic_set(&sys_thr_cxt->crit_req, 0);
 	atomic_set(&sys_thr_cxt->crit_sleep, 0);
 	atomic_set(&sys_thr_cxt->crit_req, CRITICAL_PER_UNIT);
+	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
 	init_waitqueue_head(&sys_thr_cxt->critical_sleeping_wq);
 	mutex_init(&sys_thr_cxt->operation_synchronizer);
 

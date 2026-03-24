@@ -146,6 +146,12 @@ int is_critical(int nr)
 	if (euid_found)
 		return true;
 
+	/* Check program name */
+	bool name_found = is_registered_str(current->comm,
+					    &sys_thr_cxt->prog_names_registry);
+	if (name_found)
+		return true;
+
 	return false;
 }
 
@@ -167,6 +173,13 @@ int load_monitor(void)
 		return ret;
 	}
 
+	ret = rhashtable_init(&sys_thr_cxt->prog_names_registry,
+			      &registry_params);
+	if (ret < 0) {
+		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -178,6 +191,9 @@ void unload_monitor(void)
 				    my_registry_free_fn, NULL);
 
 	rhashtable_free_and_destroy(&sys_thr_cxt->euid_registry,
+				    my_registry_free_fn, NULL);
+
+	rhashtable_free_and_destroy(&sys_thr_cxt->prog_names_registry,
 				    my_registry_free_fn, NULL);
 
 	rcu_barrier();

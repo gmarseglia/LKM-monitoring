@@ -56,6 +56,8 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_UNREGISTER_PID:
 	case IOCTL_REGISTER_EUID:
 	case IOCTL_UNREGISTER_EUID:
+	case IOCTL_REGISTER_PROG_NAME:
+	case IOCTL_UNREGISTER_PROG_NAME:
 		if (convert_to_string(param, str_param) < 0) {
 			pr_warn("%s: Unable to convert param to string\n",
 				MODNAME);
@@ -68,7 +70,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
 		return -ENOTTY;
 	}
-	
+
 	/* Execute command */
 	int ret;
 	switch (command) {
@@ -94,6 +96,14 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_UNREGISTER_EUID:
 		ret = unregister_critical_str(str_param,
 					      &sys_thr_cxt->euid_registry);
+		break;
+	case IOCTL_REGISTER_PROG_NAME:
+		ret = register_critical_str(str_param,
+					    &sys_thr_cxt->prog_names_registry);
+		break;
+	case IOCTL_UNREGISTER_PROG_NAME:
+		ret = unregister_critical_str(
+			str_param, &sys_thr_cxt->prog_names_registry);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);

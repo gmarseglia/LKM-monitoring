@@ -26,16 +26,18 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  unsigned long COMMANDS[] = {IOCTL_REGISTER_NR,   IOCTL_UNREGISTER_NR,
-                              IOCTL_REGISTER_PID,  IOCTL_UNREGISTER_PID,
-                              IOCTL_REGISTER_EUID, IOCTL_UNREGISTER_EUID};
+  unsigned long COMMANDS[] = {
+      IOCTL_REGISTER_NR,        IOCTL_UNREGISTER_NR,
+      IOCTL_REGISTER_PID,       IOCTL_UNREGISTER_PID,
+      IOCTL_REGISTER_EUID,      IOCTL_UNREGISTER_EUID,
+      IOCTL_REGISTER_PROG_NAME, IOCTL_UNREGISTER_PROG_NAME};
 
   unsigned long command = -1;
   int argv1;
   int argv2;
 
   sscanf(argv[1], "%d", &argv1);
-  if (argv1 >= 0 && argv1 < sizeof(COMMANDS)) {
+  if (argv1 >= 0 && argv1 < (sizeof(COMMANDS) / sizeof(unsigned long))) {
     command = COMMANDS[argv1];
   }
 
@@ -51,6 +53,8 @@ int main(int argc, char **argv) {
   case IOCTL_UNREGISTER_PID:
   case IOCTL_REGISTER_EUID:
   case IOCTL_UNREGISTER_EUID:
+  case IOCTL_REGISTER_PROG_NAME:
+  case IOCTL_UNREGISTER_PROG_NAME:
     if (ioctl(fd_char, command, argv[2]) < 0) {
       printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
     }

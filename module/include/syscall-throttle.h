@@ -61,6 +61,7 @@ struct syscall_throttle_context {
 	unsigned long *sys_numbers_registry;
 	struct rhashtable pids_registry;
 	struct rhashtable euid_registry;
+	struct rhashtable prog_names_registry;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;

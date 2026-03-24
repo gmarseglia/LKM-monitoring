@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
   }
 
   unsigned long COMMANDS[] = {
+      IOCTL_START_THROTTLE,     IOCTL_STOP_THROTTLE,
       IOCTL_REGISTER_NR,        IOCTL_UNREGISTER_NR,
       IOCTL_REGISTER_PID,       IOCTL_UNREGISTER_PID,
       IOCTL_REGISTER_EUID,      IOCTL_UNREGISTER_EUID,
@@ -42,6 +43,12 @@ int main(int argc, char **argv) {
   }
 
   switch (command) {
+  case IOCTL_START_THROTTLE:
+  case IOCTL_STOP_THROTTLE:
+    if (ioctl(fd_char, command) < 0) {
+      printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
+    }
+    break;
   case IOCTL_REGISTER_NR:
   case IOCTL_UNREGISTER_NR:
     sscanf(argv[2], "%d", &argv2);

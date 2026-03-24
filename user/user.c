@@ -8,7 +8,7 @@
 
 #define SLEEP_MSEC 10
 #define SEC_PER_SLEEP (1000 / SLEEP_MSEC)
-#define WRITE_ITER 3 * SEC_PER_SLEEP
+#define WRITE_ITER SEC_PER_SLEEP
 
 void msleep(long ms) {
   struct timespec ts;

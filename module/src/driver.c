@@ -47,6 +47,10 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 
 	/* Convert param according to command */
 	switch (command) {
+	case IOCTL_START_THROTTLE:
+	case IOCTL_STOP_THROTTLE:
+		// No params for these commands
+		break;
 	case IOCTL_REGISTER_NR:
 	case IOCTL_UNREGISTER_NR:
 		nr = (int)param;
@@ -74,6 +78,12 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	/* Execute command */
 	int ret;
 	switch (command) {
+	case IOCTL_START_THROTTLE:
+		atomic_set(&sys_thr_cxt->running, true);
+		break;
+	case IOCTL_STOP_THROTTLE:
+		atomic_set(&sys_thr_cxt->running, false);
+		break;
 	case IOCTL_REGISTER_NR:
 		ret = register_critical_num(nr);
 		break;

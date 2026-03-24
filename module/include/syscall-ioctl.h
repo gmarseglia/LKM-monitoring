@@ -10,13 +10,16 @@
  * _IOW: Write data to the kernel (User -> Kernel)
  * _IOR: Read data from the kernel (Kernel -> User)
  */
-#define IOCTL_REGISTER_NR           _IOW(MY_MACRO_MAGIC, 0, int)
-#define IOCTL_UNREGISTER_NR         _IOW(MY_MACRO_MAGIC, 1, int)
-#define IOCTL_REGISTER_PID          _IOW(MY_MACRO_MAGIC, 2, char *)
-#define IOCTL_UNREGISTER_PID        _IOW(MY_MACRO_MAGIC, 3, char *)
-#define IOCTL_REGISTER_EUID         _IOW(MY_MACRO_MAGIC, 4, char *)
-#define IOCTL_UNREGISTER_EUID       _IOW(MY_MACRO_MAGIC, 5, char *)
-#define IOCTL_REGISTER_PROG_NAME    _IOW(MY_MACRO_MAGIC, 6, char *)
-#define IOCTL_UNREGISTER_PROG_NAME  _IOW(MY_MACRO_MAGIC, 7, char *)
+
+#define IOCTL_START_THROTTLE        _IO(MY_MACRO_MAGIC, 0)
+#define IOCTL_STOP_THROTTLE         _IO(MY_MACRO_MAGIC, 1)
+#define IOCTL_REGISTER_NR           _IOW(MY_MACRO_MAGIC, 2, int)
+#define IOCTL_UNREGISTER_NR         _IOW(MY_MACRO_MAGIC, 3, int)
+#define IOCTL_REGISTER_PID          _IOW(MY_MACRO_MAGIC, 4, char *)
+#define IOCTL_UNREGISTER_PID        _IOW(MY_MACRO_MAGIC, 5, char *)
+#define IOCTL_REGISTER_EUID         _IOW(MY_MACRO_MAGIC, 6, char *)
+#define IOCTL_UNREGISTER_EUID       _IOW(MY_MACRO_MAGIC, 7, char *)
+#define IOCTL_REGISTER_PROG_NAME    _IOW(MY_MACRO_MAGIC, 8, char *)
+#define IOCTL_UNREGISTER_PROG_NAME  _IOW(MY_MACRO_MAGIC, 9, char *)
 
 #endif

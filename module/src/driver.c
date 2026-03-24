@@ -45,32 +45,62 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	char str_param[64];
 	int nr;
 
+	/* Convert param according to command */
 	switch (command) {
 	case IOCTL_REGISTER_NR:
-		nr = (int)param;
-		register_critical_num(nr);
-		break;
 	case IOCTL_UNREGISTER_NR:
 		nr = (int)param;
-		unregister_critical_num(nr);
+		pr_info("%s: ioctl executing with nr=%d", MODNAME, nr);
 		break;
 	case IOCTL_REGISTER_PID:
-		// #TODO: check results better
-		if (convert_to_string(param, str_param) > 0)
-			register_critical_str(str_param,
-					      &sys_thr_cxt->pids_registry);
-		break;
 	case IOCTL_UNREGISTER_PID:
-		if (convert_to_string(param, str_param) > 0)
-			unregister_critical_str(str_param,
-						&sys_thr_cxt->pids_registry);
+	case IOCTL_REGISTER_EUID:
+	case IOCTL_UNREGISTER_EUID:
+		if (convert_to_string(param, str_param) < 0) {
+			pr_warn("%s: Unable to convert param to string\n",
+				MODNAME);
+			return -EINVAL;
+		}
+		pr_info("%s: ioctl executing with str_param=%s", MODNAME,
+			str_param);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
 		return -ENOTTY;
 	}
+	
+	/* Execute command */
+	int ret;
+	switch (command) {
+	case IOCTL_REGISTER_NR:
+		ret = register_critical_num(nr);
+		break;
+	case IOCTL_UNREGISTER_NR:
+		ret = unregister_critical_num(nr);
+		break;
+	case IOCTL_REGISTER_PID:
+		pr_info("%s: command=IOCTL_REGISTER_PID", MODNAME);
+		ret = register_critical_str(str_param,
+					    &sys_thr_cxt->pids_registry);
+		break;
+	case IOCTL_UNREGISTER_PID:
+		ret = unregister_critical_str(str_param,
+					      &sys_thr_cxt->pids_registry);
+		break;
+	case IOCTL_REGISTER_EUID:
+		ret = register_critical_str(str_param,
+					    &sys_thr_cxt->euid_registry);
+		break;
+	case IOCTL_UNREGISTER_EUID:
+		ret = unregister_critical_str(str_param,
+					      &sys_thr_cxt->euid_registry);
+		break;
+	default:
+		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
+		ret = -ENOTTY;
+	}
 
-	return 0;
+	return ret;
 }
 
 int load_driver(void)

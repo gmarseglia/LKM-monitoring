@@ -1,12 +1,10 @@
-// #define _XOPEN_SOURCE
 #include "syscall-ioctl.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/types.h> // Header for pid_t
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -21,12 +19,6 @@ void msleep(long ms) {
 
 int main(int argc, char **argv) {
 
-  pid_t process_id = getpid();
-  pid_t parent_id = getppid();
-
-  printf("Current Process ID (PID): %d\n", process_id);
-  printf("Parent Process ID (PPID): %d\n", parent_id);
-
   int fd_char = open(DEVICE_PATH, O_RDONLY);
 
   if (fd_char < 0) {
@@ -34,8 +26,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  unsigned long COMMANDS[] = {IOCTL_REGISTER_NR, IOCTL_UNREGISTER_NR,
-                              IOCTL_REGISTER_PID, IOCTL_UNREGISTER_PID};
+  unsigned long COMMANDS[] = {IOCTL_REGISTER_NR,   IOCTL_UNREGISTER_NR,
+                              IOCTL_REGISTER_PID,  IOCTL_UNREGISTER_PID,
+                              IOCTL_REGISTER_EUID, IOCTL_UNREGISTER_EUID};
 
   unsigned long command = -1;
   int argv1;
@@ -56,6 +49,8 @@ int main(int argc, char **argv) {
     break;
   case IOCTL_REGISTER_PID:
   case IOCTL_UNREGISTER_PID:
+  case IOCTL_REGISTER_EUID:
+  case IOCTL_UNREGISTER_EUID:
     if (ioctl(fd_char, command, argv[2]) < 0) {
       printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
     }

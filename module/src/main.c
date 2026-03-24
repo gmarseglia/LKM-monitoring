@@ -20,7 +20,6 @@ static int initfn(void)
 	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
 	init_waitqueue_head(&sys_thr_cxt->critical_sleeping_wq);
 	mutex_init(&sys_thr_cxt->operation_synchronizer);
-	sys_thr_cxt->sys_numbers_registry = bitmap_zalloc(MAX_NR, GFP_KERNEL);
 
 	pr_info("%s: module correctly loaded\n", MODNAME);
 
@@ -84,7 +83,6 @@ static void exitfn(void)
 	/* Unload the monitor */
 	unload_monitor();
 
-	bitmap_free(sys_thr_cxt->sys_numbers_registry);
 	kfree(sys_thr_cxt);
 	pr_info("%s: module correctly unloaded\n", MODNAME);
 }

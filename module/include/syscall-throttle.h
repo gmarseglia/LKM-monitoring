@@ -1,10 +1,12 @@
 #ifndef _SYSCALL_THROTTLE_H_
 #define _SYSCALL_THROTTLE_H_
 
+#include <asm-generic/errno-base.h>
 #include <asm/preempt.h>
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
 #include <linux/compiler.h>
+#include <linux/cred.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gfp_types.h>
@@ -24,8 +26,10 @@
 #include <linux/slab.h>
 #include <linux/smp.h>
 #include <linux/sprintf.h>
+#include <linux/stddef.h>
 #include <linux/timer.h>
 #include <linux/types.h>
+#include <linux/uidgid.h>
 #include <linux/wait.h>
 
 #define MODNAME "SYSCALL-THROTTLE"
@@ -56,6 +60,7 @@ struct syscall_throttle_context {
 	struct device *my_device;
 	unsigned long *sys_numbers_registry;
 	struct rhashtable pids_registry;
+	struct rhashtable euid_registry;
 };
 
 extern struct syscall_throttle_context *sys_thr_cxt;
@@ -69,10 +74,12 @@ int load_monitor(void);
 void unload_monitor(void);
 
 void update_limit_and_wake(void);
+
 int register_critical_num(unsigned int);
-void unregister_critical_num(unsigned int);
+int unregister_critical_num(unsigned int);
 int register_critical_str(char *, struct rhashtable *);
-void unregister_critical_str(char *, struct rhashtable *);
-int is_critical(int);
+int unregister_critical_str(char *, struct rhashtable *);
+
+int is_critical(int nr);
 
 #endif

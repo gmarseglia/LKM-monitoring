@@ -46,7 +46,7 @@ untry:
 try:
 	$(MAKE) all
 	sudo insmod syscall-throttle.ko
-	sudo dmesg
+# 	sudo dmesg
 
 retry:
 	$(MAKE) untry

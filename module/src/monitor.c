@@ -60,7 +60,7 @@ int register_critical_str(char *new_str, struct rhashtable *ht)
 	return 0;
 }
 
-void unregister_critical_str(char *target_str, struct rhashtable *ht)
+int unregister_critical_str(char *target_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
 
@@ -69,7 +69,7 @@ void unregister_critical_str(char *target_str, struct rhashtable *ht)
 	rcu_read_unlock();
 
 	if (!entry)
-		return; /* Not found */
+		return 0; /* Not found */
 
 	/* Remove from table. It will no longer be visible to new readers. */
 	if (rhashtable_remove_fast(ht, &entry->linkage, registry_params) == 0) {
@@ -79,6 +79,8 @@ void unregister_critical_str(char *target_str, struct rhashtable *ht)
 		 * done. */
 		kfree_rcu(entry, rcu);
 	}
+
+	return 0;
 }
 
 static bool is_registered_str(char *search_str, struct rhashtable *ht)
@@ -102,13 +104,16 @@ static bool is_registered_str(char *search_str, struct rhashtable *ht)
 
 int register_critical_num(unsigned int nr)
 {
+	// #TODO: add limit check?
 	set_bit(nr, sys_thr_cxt->sys_numbers_registry);
 	return 0;
 }
 
-void unregister_critical_num(unsigned int nr)
+int unregister_critical_num(unsigned int nr)
 {
+	// #TODO: add limit check?
 	clear_bit(nr, sys_thr_cxt->sys_numbers_registry);
+	return 0;
 }
 
 /*
@@ -121,20 +126,42 @@ int is_critical(int nr)
 	if (!test_bit(nr, sys_thr_cxt->sys_numbers_registry))
 		return 0;
 
-	/* Check PID */
+	/* Get PID */
 	char pid[64];
 	snprintf(pid, sizeof(pid), "%d", current->pid);
 
+	/* Check PID */
 	bool pid_found = is_registered_str(pid, &sys_thr_cxt->pids_registry);
+	if (pid_found)
+		return true;
 
-	return (pid_found);
+	/* Get eUID */
+	char euid[64];
+	kuid_t current_kuid = current_euid();
+	uid_t euid_val = from_kuid(&init_user_ns, current_kuid);
+	snprintf(euid, sizeof(euid), "%u", euid_val);
+
+	/* Check eUID */
+	bool euid_found = is_registered_str(euid, &sys_thr_cxt->euid_registry);
+	if (euid_found)
+		return true;
+
+	return false;
 }
 
 int load_monitor(void)
 {
 	int ret;
 
+	sys_thr_cxt->sys_numbers_registry = bitmap_zalloc(MAX_NR, GFP_KERNEL);
+
 	ret = rhashtable_init(&sys_thr_cxt->pids_registry, &registry_params);
+	if (ret < 0) {
+		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
+		return ret;
+	}
+
+	ret = rhashtable_init(&sys_thr_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
 		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
 		return ret;
@@ -145,7 +172,12 @@ int load_monitor(void)
 
 void unload_monitor(void)
 {
+	bitmap_free(sys_thr_cxt->sys_numbers_registry);
+
 	rhashtable_free_and_destroy(&sys_thr_cxt->pids_registry,
+				    my_registry_free_fn, NULL);
+
+	rhashtable_free_and_destroy(&sys_thr_cxt->euid_registry,
 				    my_registry_free_fn, NULL);
 
 	rcu_barrier();

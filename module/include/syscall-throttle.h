@@ -73,11 +73,22 @@ struct syscall_throttle_context {
 	struct device *my_device;
 };
 
+#define SYS_THR_METRICS_SCALING_FACTOR 100000
+
+struct syscall_throttle_metrics {
+	spinlock_t lock;
+	unsigned long max_sleep;
+	unsigned long avg_sleep;
+	unsigned long units_passed;
+};
+
 extern struct syscall_throttle_context *sys_thr_cxt;
+extern struct syscall_throttle_metrics *sys_thr_met;
 
 int load_throttle(void);
 int load_hack_search(void);
 int load_timer(void);
+void unload_timer(void);
 int load_driver(void);
 void unload_driver(void);
 int load_monitor(void);

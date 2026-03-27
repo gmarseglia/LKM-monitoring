@@ -12,6 +12,7 @@ static int initfn(void)
 
 	sys_thr_cxt =
 		kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
+	// #TODO: check return value
 
 	atomic_set(&sys_thr_cxt->hack_ready_on_cpu, 0);
 	atomic_set(&sys_thr_cxt->throttle_running, false);
@@ -61,8 +62,7 @@ static void exitfn(void)
 	unload_driver();
 
 	/* Delete the timer */
-	del_timer_sync(&sys_thr_cxt->periodic_timer);
-	pr_info("%s: timer unregistered\n", MODNAME);
+	unload_timer();
 
 	/*
 	  Wake up possible sleeping thread.

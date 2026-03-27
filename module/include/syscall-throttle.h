@@ -25,6 +25,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
+#include <linux/spinlock_types.h>
 #include <linux/sprintf.h>
 #include <linux/stddef.h>
 #include <linux/timer.h>
@@ -42,6 +43,7 @@
 #define TIMER_INTERVAL 1000
 #define CRITICAL_PER_UNIT 3
 #define MAX_NR 323
+#define __ST_MAX_STR_LEN 64
 
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
@@ -75,15 +77,15 @@ struct syscall_throttle_context {
 
 #define SYS_THR_METRICS_SCALING_FACTOR 100000
 
-struct syscall_throttle_metrics {
+struct syscall_throttle_sleep_metrics {
 	spinlock_t lock;
 	unsigned long max_sleep;
 	unsigned long avg_sleep;
 	unsigned long units_passed;
 };
 
-extern struct syscall_throttle_context *sys_thr_cxt;
-extern struct syscall_throttle_metrics *sys_thr_met;
+extern struct syscall_throttle_context *st_cxt;
+extern struct syscall_throttle_sleep_metrics *st_slp_met;
 
 int load_throttle(void);
 int load_hack_search(void);

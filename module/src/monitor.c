@@ -1,9 +1,7 @@
 #include "syscall-throttle.h"
 
-#define MAX_STR_LEN 64
-
 struct string_entry {
-	char string_key[MAX_STR_LEN];
+	char string_key[__ST_MAX_STR_LEN];
 	struct rhash_head linkage;
 	struct rcu_head rcu;
 };
@@ -32,10 +30,10 @@ static void my_registry_free_fn(void *ptr, void *arg)
 static struct rhashtable_params registry_params = {
 	.head_offset = offsetof(struct string_entry, linkage),
 	.key_offset = offsetof(struct string_entry, string_key),
-	.key_len = MAX_STR_LEN, /* Add this line! */
+	.key_len = __ST_MAX_STR_LEN,
 	.hashfn = my_string_hashfn,
 	.obj_cmpfn = my_string_cmpfn,
-	.automatic_shrinking = true, /* Keeps memory usage low */
+	.automatic_shrinking = true,
 };
 
 int register_critical_str(char *new_str, struct rhashtable *ht)
@@ -71,12 +69,7 @@ int unregister_critical_str(char *target_str, struct rhashtable *ht)
 	if (!entry)
 		return 0; /* Not found */
 
-	/* Remove from table. It will no longer be visible to new readers. */
 	if (rhashtable_remove_fast(ht, &entry->linkage, registry_params) == 0) {
-		/* CRITICAL: We cannot kfree() immediately because an RCU reader
-		 * might still be looking at it! We use kfree_rcu to schedule
-		 * the memory to be freed only after all current readers are
-		 * done. */
 		kfree_rcu(entry, rcu);
 	}
 
@@ -105,14 +98,14 @@ static bool is_registered_str(char *search_str, struct rhashtable *ht)
 int register_critical_num(unsigned int nr)
 {
 	// #TODO: add limit check?
-	set_bit(nr, sys_thr_cxt->sys_numbers_registry);
+	set_bit(nr, st_cxt->sys_numbers_registry);
 	return 0;
 }
 
 int unregister_critical_num(unsigned int nr)
 {
 	// #TODO: add limit check?
-	clear_bit(nr, sys_thr_cxt->sys_numbers_registry);
+	clear_bit(nr, st_cxt->sys_numbers_registry);
 	return 0;
 }
 
@@ -123,7 +116,7 @@ int is_critical(int nr)
 {
 	/* Check syscall */
 
-	if (!test_bit(nr, sys_thr_cxt->sys_numbers_registry))
+	if (!test_bit(nr, st_cxt->sys_numbers_registry))
 		return 0;
 
 	/* Get PID */
@@ -131,7 +124,7 @@ int is_critical(int nr)
 	snprintf(pid, sizeof(pid), "%d", current->pid);
 
 	/* Check PID */
-	bool pid_found = is_registered_str(pid, &sys_thr_cxt->pids_registry);
+	bool pid_found = is_registered_str(pid, &st_cxt->pids_registry);
 	if (pid_found)
 		return true;
 
@@ -142,13 +135,13 @@ int is_critical(int nr)
 	snprintf(euid, sizeof(euid), "%u", euid_val);
 
 	/* Check eUID */
-	bool euid_found = is_registered_str(euid, &sys_thr_cxt->euid_registry);
+	bool euid_found = is_registered_str(euid, &st_cxt->euid_registry);
 	if (euid_found)
 		return true;
 
 	/* Check program name */
-	bool name_found = is_registered_str(current->comm,
-					    &sys_thr_cxt->prog_names_registry);
+	bool name_found =
+		is_registered_str(current->comm, &st_cxt->prog_names_registry);
 	if (name_found)
 		return true;
 
@@ -159,22 +152,21 @@ int load_monitor(void)
 {
 	int ret;
 
-	sys_thr_cxt->sys_numbers_registry = bitmap_zalloc(MAX_NR, GFP_KERNEL);
+	st_cxt->sys_numbers_registry = bitmap_zalloc(MAX_NR, GFP_KERNEL);
 
-	ret = rhashtable_init(&sys_thr_cxt->pids_registry, &registry_params);
+	ret = rhashtable_init(&st_cxt->pids_registry, &registry_params);
 	if (ret < 0) {
 		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
 		return ret;
 	}
 
-	ret = rhashtable_init(&sys_thr_cxt->euid_registry, &registry_params);
+	ret = rhashtable_init(&st_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
 		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
 		return ret;
 	}
 
-	ret = rhashtable_init(&sys_thr_cxt->prog_names_registry,
-			      &registry_params);
+	ret = rhashtable_init(&st_cxt->prog_names_registry, &registry_params);
 	if (ret < 0) {
 		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
 		return ret;
@@ -185,15 +177,15 @@ int load_monitor(void)
 
 void unload_monitor(void)
 {
-	bitmap_free(sys_thr_cxt->sys_numbers_registry);
+	bitmap_free(st_cxt->sys_numbers_registry);
 
-	rhashtable_free_and_destroy(&sys_thr_cxt->pids_registry,
-				    my_registry_free_fn, NULL);
+	rhashtable_free_and_destroy(&st_cxt->pids_registry, my_registry_free_fn,
+				    NULL);
 
-	rhashtable_free_and_destroy(&sys_thr_cxt->euid_registry,
-				    my_registry_free_fn, NULL);
+	rhashtable_free_and_destroy(&st_cxt->euid_registry, my_registry_free_fn,
+				    NULL);
 
-	rhashtable_free_and_destroy(&sys_thr_cxt->prog_names_registry,
+	rhashtable_free_and_destroy(&st_cxt->prog_names_registry,
 				    my_registry_free_fn, NULL);
 
 	rcu_barrier();

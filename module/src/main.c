@@ -1,7 +1,7 @@
 #include "syscall-throttle.h"
 
 DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
-struct syscall_throttle_context *sys_thr_cxt = NULL;
+struct syscall_throttle_context *st_cxt = NULL;
 
 /*
   Module init function
@@ -10,17 +10,17 @@ static int initfn(void)
 {
 	int ret;
 
-	sys_thr_cxt =
+	st_cxt =
 		kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
 	// #TODO: check return value
 
-	atomic_set(&sys_thr_cxt->hack_ready_on_cpu, 0);
-	atomic_set(&sys_thr_cxt->throttle_running, false);
-	atomic_set(&sys_thr_cxt->crit_req, 0);
-	atomic_set(&sys_thr_cxt->crit_sleep, 0);
-	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
-	init_waitqueue_head(&sys_thr_cxt->critical_sleeping_wq);
-	mutex_init(&sys_thr_cxt->operation_synchronizer);
+	atomic_set(&st_cxt->hack_ready_on_cpu, 0);
+	atomic_set(&st_cxt->throttle_running, false);
+	atomic_set(&st_cxt->crit_req, 0);
+	atomic_set(&st_cxt->crit_sleep, 0);
+	atomic_set(&st_cxt->crit_avail, CRITICAL_PER_UNIT);
+	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
+	mutex_init(&st_cxt->operation_synchronizer);
 
 	pr_info("%s: module correctly loaded\n", MODNAME);
 
@@ -60,7 +60,7 @@ static void exitfn(void)
 	  Set atomic variable to general indication of running 0 indicates that
 	  the module is starting tear down operations
 	*/
-	atomic_set(&sys_thr_cxt->throttle_running, 0);
+	atomic_set(&st_cxt->throttle_running, 0);
 
 	/* Unload the driver */
 	unload_driver();
@@ -75,14 +75,14 @@ static void exitfn(void)
 	update_limit_and_wake();
 
 	/* Wait for all thread to exit the  */
-	while (atomic_read(&sys_thr_cxt->crit_sleep) != 0)
+	while (atomic_read(&st_cxt->crit_sleep) != 0)
 		msleep(20);
 	pr_info("%s: all sleeping thread have completed\n", MODNAME);
 
 	/* Unregister the kprobe */
-	unregister_kprobe(&sys_thr_cxt->probe_throttle);
+	unregister_kprobe(&st_cxt->probe_throttle);
 	pr_info("%s: kprobe at %p unregistered\n", MODNAME,
-		sys_thr_cxt->probe_throttle.addr);
+		st_cxt->probe_throttle.addr);
 
 	/* Unload the monitor */
 	unload_monitor();
@@ -90,7 +90,7 @@ static void exitfn(void)
 	/* Unload the metrics */
 	unload_metrics();
 
-	kfree(sys_thr_cxt);
+	kfree(st_cxt);
 	pr_info("%s: module correctly unloaded\n", MODNAME);
 }
 

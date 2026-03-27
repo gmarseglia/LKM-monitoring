@@ -30,7 +30,7 @@ static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 			pr_info("%s: found on CPU %d at %p", MODNAME,
 				smp_processor_id(), temp);
 			this_cpu_write(saved_kprobe_context_p, temp);
-			atomic_inc(&sys_thr_cxt->hack_ready_on_cpu);
+			atomic_inc(&st_cxt->hack_ready_on_cpu);
 			break;
 		}
 	}
@@ -68,7 +68,7 @@ int load_hack_search(void)
 	/* Execute "dummy_run" on each CPU to trigger the search probe
 	 * pre-handler */
 	on_each_cpu(dummy_run, NULL, 1);
-	if (atomic_read(&sys_thr_cxt->hack_ready_on_cpu) < num_online_cpus()) {
+	if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
 		pr_err("%s: load_hack_search did not complete on every CPU.",
 		       MODNAME);
 	}

@@ -79,10 +79,10 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	int ret = 0;
 	switch (command) {
 	case IOCTL_START_THROTTLE:
-		atomic_set(&sys_thr_cxt->throttle_running, true);
+		atomic_set(&st_cxt->throttle_running, true);
 		break;
 	case IOCTL_STOP_THROTTLE:
-		atomic_set(&sys_thr_cxt->throttle_running, false);
+		atomic_set(&st_cxt->throttle_running, false);
 		update_limit_and_wake();
 		break;
 	case IOCTL_REGISTER_NR:
@@ -94,27 +94,27 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_REGISTER_PID:
 		pr_info("%s: command=IOCTL_REGISTER_PID", MODNAME);
 		ret = register_critical_str(str_param,
-					    &sys_thr_cxt->pids_registry);
+					    &st_cxt->pids_registry);
 		break;
 	case IOCTL_UNREGISTER_PID:
 		ret = unregister_critical_str(str_param,
-					      &sys_thr_cxt->pids_registry);
+					      &st_cxt->pids_registry);
 		break;
 	case IOCTL_REGISTER_EUID:
 		ret = register_critical_str(str_param,
-					    &sys_thr_cxt->euid_registry);
+					    &st_cxt->euid_registry);
 		break;
 	case IOCTL_UNREGISTER_EUID:
 		ret = unregister_critical_str(str_param,
-					      &sys_thr_cxt->euid_registry);
+					      &st_cxt->euid_registry);
 		break;
 	case IOCTL_REGISTER_PROG_NAME:
 		ret = register_critical_str(str_param,
-					    &sys_thr_cxt->prog_names_registry);
+					    &st_cxt->prog_names_registry);
 		break;
 	case IOCTL_UNREGISTER_PROG_NAME:
 		ret = unregister_critical_str(
-			str_param, &sys_thr_cxt->prog_names_registry);
+			str_param, &st_cxt->prog_names_registry);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
@@ -133,7 +133,7 @@ int load_driver(void)
 	}
 	pr_info("%s: char device driver registered with Major=%d", MODNAME,
 		Major);
-	sys_thr_cxt->Major = Major;
+	st_cxt->Major = Major;
 
 	int ret = create_device();
 
@@ -145,24 +145,24 @@ void unload_driver(void)
 	destroy_device();
 
 	// #TODO: check if devices are still open
-	unregister_chrdev(sys_thr_cxt->Major, MODNAME);
+	unregister_chrdev(st_cxt->Major, MODNAME);
 }
 
 static int create_device(void)
 {
-	sys_thr_cxt->my_class = class_create(MODNAME);
-	if (IS_ERR(sys_thr_cxt->my_class)) { // #TODO: what is this?
-		unregister_chrdev(sys_thr_cxt->Major, MODNAME);
-		return PTR_ERR(sys_thr_cxt->my_class);
+	st_cxt->my_class = class_create(MODNAME);
+	if (IS_ERR(st_cxt->my_class)) { // #TODO: what is this?
+		unregister_chrdev(st_cxt->Major, MODNAME);
+		return PTR_ERR(st_cxt->my_class);
 	}
 
-	sys_thr_cxt->my_device =
-		device_create(sys_thr_cxt->my_class, NULL,
-			      MKDEV(sys_thr_cxt->Major, 0), NULL, "sys_thr");
-	if (IS_ERR(sys_thr_cxt->my_device)) {
-		class_destroy(sys_thr_cxt->my_class);
-		unregister_chrdev(sys_thr_cxt->Major, MODNAME);
-		return PTR_ERR(sys_thr_cxt->my_device);
+	st_cxt->my_device =
+		device_create(st_cxt->my_class, NULL,
+			      MKDEV(st_cxt->Major, 0), NULL, "sys_thr");
+	if (IS_ERR(st_cxt->my_device)) {
+		class_destroy(st_cxt->my_class);
+		unregister_chrdev(st_cxt->Major, MODNAME);
+		return PTR_ERR(st_cxt->my_device);
 	}
 
 	return 0;
@@ -170,6 +170,6 @@ static int create_device(void)
 
 static void destroy_device(void)
 {
-	device_destroy(sys_thr_cxt->my_class, MKDEV(sys_thr_cxt->Major, 0));
-	class_destroy(sys_thr_cxt->my_class);
+	device_destroy(st_cxt->my_class, MKDEV(st_cxt->Major, 0));
+	class_destroy(st_cxt->my_class);
 }

@@ -9,10 +9,10 @@
 void update_limit_and_wake(void)
 {
 	/* Updates the limits according the number of requests */
-	atomic_set(&sys_thr_cxt->crit_avail, CRITICAL_PER_UNIT);
+	atomic_set(&st_cxt->crit_avail, CRITICAL_PER_UNIT);
 
 	/* Wakes up the event wait queue */
-	wake_up_interruptible(&sys_thr_cxt->critical_sleeping_wq);
+	wake_up_interruptible(&st_cxt->critical_sleeping_wq);
 }
 
 /*
@@ -26,7 +26,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 {
 
 	/* Check if the module is still running */
-	if (atomic_read(&sys_thr_cxt->throttle_running) == false)
+	if (atomic_read(&st_cxt->throttle_running) == false)
 		return 0;
 
 	struct pt_regs *the_regs = (struct pt_regs *)regs->di;
@@ -46,14 +46,14 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	/* If syscall request is critical */
 	if (unlikely(is_critical(sys_call_number))) {
 		/* curr_req is used as critical request ID */
-		int curr_req = atomic_fetch_inc(&sys_thr_cxt->crit_req);
+		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);
 
 		LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu",
 				 MODNAME, curr_req, current->pid,
 				 sys_call_number);
 
 		/* If curr_avail < 0 ==> syscall has to be delayed */
-		if (atomic_dec_return(&sys_thr_cxt->crit_avail) < 0) {
+		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {
 			/* If here, then syscall request has to be blocked */
 			LOG_FINE pr_info("%s: probe #%05d must be delayed, "
 					 "curr_req=%d",
@@ -66,24 +66,24 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			this_cpu_write(*kprobe_context_p, NULL);
 
 			/* Enable preemption */
-			atomic_inc(&sys_thr_cxt->crit_sleep);
+			atomic_inc(&st_cxt->crit_sleep);
 			// #TODO: preempt_enable_no_resched() could be better
 			preempt_enable();
 
 			/* Go to sleep, and wake up when under limit or when
 			 * throttling is off */
 			wait_event_interruptible(
-				sys_thr_cxt->critical_sleeping_wq,
-				atomic_dec_return(&sys_thr_cxt->crit_avail) >=
+				st_cxt->critical_sleeping_wq,
+				atomic_dec_return(&st_cxt->crit_avail) >=
 						0 ||
 					atomic_read(
-						&sys_thr_cxt
+						&st_cxt
 							 ->throttle_running) ==
 						false);
 
 			/* Disable premption */
 			preempt_disable();
-			atomic_dec(&sys_thr_cxt->crit_sleep);
+			atomic_dec(&st_cxt->crit_sleep);
 
 			/* Restore kprobe context */
 			this_cpu_write(*kprobe_context_p, p);
@@ -106,10 +106,10 @@ int load_throttle(void)
 {
 	int ret;
 
-	sys_thr_cxt->probe_throttle.symbol_name = DISPATCHER_SYMBOL_NAME;
-	sys_thr_cxt->probe_throttle.pre_handler = pre_handler_throttle;
+	st_cxt->probe_throttle.symbol_name = DISPATCHER_SYMBOL_NAME;
+	st_cxt->probe_throttle.pre_handler = pre_handler_throttle;
 
-	ret = register_kprobe(&sys_thr_cxt->probe_throttle);
+	ret = register_kprobe(&st_cxt->probe_throttle);
 	if (ret < 0) {
 		pr_err("%s: register_kprobe failed, returned %d\n", MODNAME,
 		       ret);

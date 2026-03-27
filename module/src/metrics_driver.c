@@ -43,8 +43,6 @@ static void *rhash_seq_start(struct seq_file *m, loff_t *pos)
 {
 	struct rhash_seq_state *state = m->private;
 
-	pr_info("START HASH");
-
 	/* Reset the walk */
 	if (*pos == 0) {
 		rhashtable_walk_exit(&state->iter);
@@ -109,82 +107,21 @@ static int rhash_seq_release(struct inode *inode, struct file *file)
 	return seq_release_private(inode, file);
 }
 
-struct bitmap_seq_state {
-	unsigned long **bitmap;
-	long long curr_pos;
-	long long max;
-};
-
-static void *bitmap_seq_start(struct seq_file *m, loff_t *pos);
-static void *bitmap_seq_next(struct seq_file *m, void *v, loff_t *pos);
-static void bitmap_seq_stop(struct seq_file *m, void *v);
-static int bitmap_seq_show(struct seq_file *m, void *v);
-static int bitmap_seq_open(struct inode *inode, struct file *file);
-
-static struct seq_operations bitmap_seq_ops = {
-	.start = bitmap_seq_start,
-	.next = bitmap_seq_next,
-	.stop = bitmap_seq_stop,
-	.show = bitmap_seq_show,
-};
-
-static struct proc_ops bitmap_proc_ops = {.proc_open = bitmap_seq_open,
-					  .proc_read = seq_read,
-					  .proc_lseek = seq_lseek,
-					  .proc_release = seq_release_private};
-
-static int bitmap_seq_open(struct inode *inode, struct file *file)
+static int nr_show(struct seq_file *m, void *v)
 {
-	struct bitmap_seq_state *state = __seq_open_private(
-		file, &bitmap_seq_ops, sizeof(struct bitmap_seq_state));
-	if (!state)
-		return -ENOMEM;
-
-	state->bitmap = pde_data(inode);
-	state->max = __ST_MAX_NR;
-
+	for (int nr = 0; nr < __ST_MAX_NR; nr++) {
+		if (test_bit(nr, st_cxt->sys_numbers_registry) == true) {
+			seq_printf(m, "nr:%d\n", nr);
+		}
+	}
 	return 0;
 }
 
-static void *bitmap_seq_start(struct seq_file *m, loff_t *pos)
+static int sleep_metrics_show(struct seq_file *m, void *v)
 {
-	struct bitmap_seq_state *state = m->private;
-
-	state->curr_pos = *pos;
-	if (*pos >= 0 && *pos < state->max) {
-		return (void *)&state->curr_pos;
-	} else {
-		return NULL;
-	}
-}
-
-static void *bitmap_seq_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	struct bitmap_seq_state *state = m->private;
-
-	(*pos)++;
-	state->curr_pos = *pos;
-	if (*pos >= 0 && *pos < state->max) {
-		return (void *)&state->curr_pos;
-	} else {
-		return NULL;
-	}
-}
-
-static void bitmap_seq_stop(struct seq_file *m, void *v) { return; }
-
-static int bitmap_seq_show(struct seq_file *m, void *v)
-{
-	struct bitmap_seq_state *state = m->private;
-
-	long long pos = *(long long *)v;
-
-	if (!IS_ERR_OR_NULL(v) && pos >= 0 && pos < state->max) {
-		if (test_bit(pos, *state->bitmap) == false)
-			return 0;
-
-		seq_printf(m, "nr:%lld\n", pos);
-	}
+	seq_printf(m, "avg_sleep=%ld\nmax_sleep=%ld\n",
+		   st_slp_met->avg_sleep / __ST_METRICS_SCALING_FACTOR,
+		   st_slp_met->max_sleep / __ST_METRICS_SCALING_FACTOR);
 
 	return 0;
 }
@@ -202,8 +139,10 @@ int load_metrics_driver(void)
 	proc_create_data("euid", 0444, st_cxt->my_proc_dir, &rhash_proc_ops,
 			 &st_cxt->euid_registry);
 
-	proc_create_data("nr", 0444, st_cxt->my_proc_dir, &bitmap_proc_ops,
-			 &st_cxt->sys_numbers_registry);
+	proc_create_single("nr", 0444, st_cxt->my_proc_dir, nr_show);
+
+	proc_create_single("sleep_metrics", 0444, st_cxt->my_proc_dir,
+			   sleep_metrics_show);
 
 	return 0;
 }
@@ -213,5 +152,6 @@ void unload_metrics_driver(void)
 	remove_proc_entry("program_names", st_cxt->my_proc_dir);
 	remove_proc_entry("euid", st_cxt->my_proc_dir);
 	remove_proc_entry("nr", st_cxt->my_proc_dir);
+	remove_proc_entry("sleep_metrics", st_cxt->my_proc_dir);
 	remove_proc_entry(__ST_MODNAME, NULL);
 }

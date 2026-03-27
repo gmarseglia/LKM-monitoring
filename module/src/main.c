@@ -32,6 +32,10 @@ static int initfn(void)
 	if (ret != 0)
 		return ret;
 
+	ret = load_metrics();
+	if (ret != 0)
+		return ret;
+
 	ret = load_timer();
 	if (ret != 0)
 		return ret;
@@ -82,6 +86,9 @@ static void exitfn(void)
 
 	/* Unload the monitor */
 	unload_monitor();
+
+	/* Unload the metrics */
+	unload_metrics();
 
 	kfree(sys_thr_cxt);
 	pr_info("%s: module correctly unloaded\n", MODNAME);

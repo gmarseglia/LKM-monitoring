@@ -87,6 +87,8 @@ extern struct syscall_throttle_metrics *sys_thr_met;
 
 int load_throttle(void);
 int load_hack_search(void);
+int load_metrics(void);
+void unload_metrics(void);
 int load_timer(void);
 void unload_timer(void);
 int load_driver(void);
@@ -95,6 +97,8 @@ int load_monitor(void);
 void unload_monitor(void);
 
 void update_limit_and_wake(void);
+
+void update_sleep_metrics(void);
 
 int register_critical_num(unsigned int);
 int unregister_critical_num(unsigned int);

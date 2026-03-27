@@ -3,7 +3,7 @@ MODULE_NAME := syscall-throttle
 
 # List the object files needed. 
 # We prefix them with src/ so Kbuild finds them in the subfolder.
-$(MODULE_NAME)-objs := src/main.o src/preemptable_kprobe.o src/throttle.o src/timer.o src/driver.o src/monitor.o
+$(MODULE_NAME)-objs := src/main.o src/preemptable_kprobe.o src/throttle.o src/timer.o src/driver.o src/monitor.o src/metrics.o
 
 # Tell the kernel build system about our module
 obj-m := $(MODULE_NAME).o

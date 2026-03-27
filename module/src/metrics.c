@@ -81,7 +81,7 @@ static void print_metrics(void)
 
 void unload_metrics(void)
 {
-	print_metrics();
-	kfree(&st_slp_met);
+	// print_metrics();
+	kfree(st_slp_met);
 	kfree(st_dly_met);
 }

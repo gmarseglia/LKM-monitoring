@@ -79,11 +79,14 @@ struct syscall_throttle_context {
 	struct timer_list periodic_timer;
 	wait_queue_head_t critical_sleeping_wq;
 
-	/* For driver */
+	/* For ioctl driver */
 	int Major;
 	struct mutex operation_synchronizer;
 	struct class *my_class;
 	struct device *my_device;
+
+	/* For procfs driver */
+	struct proc_dir_entry *my_proc_dir;
 };
 
 struct syscall_throttle_sleep_metrics {

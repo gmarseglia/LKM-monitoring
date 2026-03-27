@@ -1,11 +1,5 @@
 #include "syscall-throttle.h"
 
-struct string_entry {
-	char string_key[__ST_MAX_STR_LEN];
-	struct rhash_head linkage;
-	struct rcu_head rcu;
-};
-
 static u32 my_string_hashfn(const void *data, u32 len, u32 seed)
 {
 	return jhash((char *)data, strlen((char *)data), seed);

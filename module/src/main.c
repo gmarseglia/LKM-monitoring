@@ -10,8 +10,7 @@ static int initfn(void)
 {
 	int ret;
 
-	st_cxt =
-		kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
+	st_cxt = kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
 	// #TODO: check return value
 
 	atomic_set(&st_cxt->hack_ready_on_cpu, 0);
@@ -33,6 +32,10 @@ static int initfn(void)
 		return ret;
 
 	ret = load_metrics();
+	if (ret != 0)
+		return ret;
+
+	ret = load_metrics_driver();
 	if (ret != 0)
 		return ret;
 
@@ -86,6 +89,8 @@ static void exitfn(void)
 
 	/* Unload the monitor */
 	unload_monitor();
+
+	unload_metrics_driver();
 
 	/* Unload the metrics */
 	unload_metrics();

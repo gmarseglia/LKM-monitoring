@@ -20,10 +20,12 @@
 #include <linux/mutex.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
+#include <linux/proc_fs.h>
 #include <linux/rcutree.h>
 #include <linux/rhashtable-types.h>
 #include <linux/rhashtable.h>
 #include <linux/sched.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
 #include <linux/spinlock_types.h>
@@ -49,6 +51,12 @@
 #define __ST_METRICS_SCALING_FACTOR 100000
 
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
+
+struct string_entry {
+	char string_key[__ST_MAX_STR_LEN];
+	struct rhash_head linkage;
+	struct rcu_head rcu;
+};
 
 struct syscall_throttle_context {
 	/* For interruptible kprobes */
@@ -108,6 +116,8 @@ int load_throttle(void);
 int load_hack_search(void);
 int load_metrics(void);
 void unload_metrics(void);
+int load_metrics_driver(void);
+void unload_metrics_driver(void);
 int load_timer(void);
 void unload_timer(void);
 int load_driver(void);

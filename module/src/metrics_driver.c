@@ -32,9 +32,8 @@ static int rhash_seq_open(struct inode *inode, struct file *file)
 	state = __seq_open_private(file, &rhash_seq_ops, sizeof(*state));
 	if (!state)
 		return -ENOMEM;
+	state->ht = pde_data(inode);
 
-	struct rhashtable *ht = pde_data(inode);
-	state->ht = ht;
 	rhashtable_walk_enter(state->ht, &state->iter);
 
 	return 0;
@@ -111,7 +110,7 @@ static int rhash_seq_release(struct inode *inode, struct file *file)
 }
 
 struct bitmap_seq_state {
-	unsigned long *bitmap;
+	unsigned long **bitmap;
 	long long curr_pos;
 	long long max;
 };
@@ -141,8 +140,7 @@ static int bitmap_seq_open(struct inode *inode, struct file *file)
 	if (!state)
 		return -ENOMEM;
 
-	unsigned long **ptr = pde_data(inode);
-	state->bitmap = *ptr;
+	state->bitmap = pde_data(inode);
 	state->max = __ST_MAX_NR;
 
 	return 0;
@@ -154,7 +152,7 @@ static void *bitmap_seq_start(struct seq_file *m, loff_t *pos)
 
 	state->curr_pos = *pos;
 	if (*pos >= 0 && *pos < state->max) {
-		return (void *)state;
+		return (void *)&state->curr_pos;
 	} else {
 		return NULL;
 	}
@@ -167,7 +165,7 @@ static void *bitmap_seq_next(struct seq_file *m, void *v, loff_t *pos)
 	(*pos)++;
 	state->curr_pos = *pos;
 	if (*pos >= 0 && *pos < state->max) {
-		return (void *)state;
+		return (void *)&state->curr_pos;
 	} else {
 		return NULL;
 	}
@@ -179,10 +177,10 @@ static int bitmap_seq_show(struct seq_file *m, void *v)
 {
 	struct bitmap_seq_state *state = m->private;
 
-	long long pos = state->curr_pos;
+	long long pos = *(long long *)v;
 
 	if (!IS_ERR_OR_NULL(v) && pos >= 0 && pos < state->max) {
-		if (test_bit(pos, state->bitmap) == false)
+		if (test_bit(pos, *state->bitmap) == false)
 			return 0;
 
 		seq_printf(m, "nr:%lld\n", pos);
@@ -197,8 +195,12 @@ int load_metrics_driver(void)
 	if (!st_cxt->my_proc_dir)
 		return -ENOMEM;
 
-	proc_create_data("prog_names", 0444, st_cxt->my_proc_dir,
+	// #TODO: add return control
+	proc_create_data("program_names", 0444, st_cxt->my_proc_dir,
 			 &rhash_proc_ops, &st_cxt->prog_names_registry);
+
+	proc_create_data("euid", 0444, st_cxt->my_proc_dir, &rhash_proc_ops,
+			 &st_cxt->euid_registry);
 
 	proc_create_data("nr", 0444, st_cxt->my_proc_dir, &bitmap_proc_ops,
 			 &st_cxt->sys_numbers_registry);
@@ -208,7 +210,8 @@ int load_metrics_driver(void)
 
 void unload_metrics_driver(void)
 {
-	remove_proc_entry("prog_names", st_cxt->my_proc_dir);
+	remove_proc_entry("program_names", st_cxt->my_proc_dir);
+	remove_proc_entry("euid", st_cxt->my_proc_dir);
 	remove_proc_entry("nr", st_cxt->my_proc_dir);
 	remove_proc_entry(__ST_MODNAME, NULL);
 }

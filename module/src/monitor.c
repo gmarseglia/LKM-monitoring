@@ -112,40 +112,49 @@ int unregister_critical_num(unsigned int nr)
 /*
   Checks if the syscall request is critical
 */
-int is_critical(int nr)
+bool is_critical(struct syscall_throttle_query_result *st_qr)
 {
 	/* Check syscall */
-
-	if (!test_bit(nr, st_cxt->sys_numbers_registry))
-		return 0;
+	if (!test_bit(st_qr->nr, st_cxt->sys_numbers_registry)) {
+		st_qr->is_critical = false;
+		return false;
+	}
 
 	/* Get PID */
-	char pid[64];
-	snprintf(pid, sizeof(pid), "%d", current->pid);
+	snprintf(st_qr->pid, __ST_MAX_NR, "%d", current->pid);
 
 	/* Check PID */
-	bool pid_found = is_registered_str(pid, &st_cxt->pids_registry);
-	if (pid_found)
-		return true;
+	if (is_registered_str(st_qr->pid, &st_cxt->pids_registry)) {
+		st_qr->is_critical = true;
+		st_qr->type = "PID";
+	}
 
 	/* Get eUID */
-	char euid[64];
 	kuid_t current_kuid = current_euid();
 	uid_t euid_val = from_kuid(&init_user_ns, current_kuid);
-	snprintf(euid, sizeof(euid), "%u", euid_val);
+	snprintf(st_qr->euid, __ST_MAX_STR_LEN, "%u", euid_val);
 
 	/* Check eUID */
-	bool euid_found = is_registered_str(euid, &st_cxt->euid_registry);
-	if (euid_found)
-		return true;
+	if (!st_qr->is_critical) {
+		if (is_registered_str(st_qr->euid, &st_cxt->euid_registry)) {
+			st_qr->is_critical = true;
+			st_qr->type = "EUID";
+		}
+	}
+
+	/* Get program name */
+	snprintf(st_qr->name, __ST_MAX_STR_LEN, "%s", current->comm);
 
 	/* Check program name */
-	bool name_found =
-		is_registered_str(current->comm, &st_cxt->prog_names_registry);
-	if (name_found)
-		return true;
+	if (!st_qr->is_critical) {
+		if (is_registered_str(st_qr->name,
+				      &st_cxt->prog_names_registry)) {
+			st_qr->is_critical = true;
+			st_qr->type = "NAME";
+		}
+	}
 
-	return false;
+	return st_qr->is_critical;
 }
 
 int load_monitor(void)
@@ -156,19 +165,22 @@ int load_monitor(void)
 
 	ret = rhashtable_init(&st_cxt->pids_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME,
+		       ret);
 		return ret;
 	}
 
 	ret = rhashtable_init(&st_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME,
+		       ret);
 		return ret;
 	}
 
 	ret = rhashtable_init(&st_cxt->prog_names_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME,
+		       ret);
 		return ret;
 	}
 

@@ -14,6 +14,7 @@
 #include <linux/jhash.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#include <linux/ktime.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -84,8 +85,24 @@ struct syscall_throttle_sleep_metrics {
 	unsigned long units_passed;
 };
 
+struct syscall_throttle_query_result {
+	bool is_critical;
+	int nr;
+	char *type;
+	char pid[__ST_MAX_STR_LEN];
+	char euid[__ST_MAX_STR_LEN];
+	char name[__ST_MAX_STR_LEN];
+};
+
+struct syscall_throttle_delay_metrics {
+	spinlock_t lock;
+	s64 max_delay_ms;
+	struct syscall_throttle_query_result qr;
+};
+
 extern struct syscall_throttle_context *st_cxt;
 extern struct syscall_throttle_sleep_metrics *st_slp_met;
+extern struct syscall_throttle_delay_metrics *st_dly_met;
 
 int load_throttle(void);
 int load_hack_search(void);
@@ -107,6 +124,6 @@ int unregister_critical_num(unsigned int);
 int register_critical_str(char *, struct rhashtable *);
 int unregister_critical_str(char *, struct rhashtable *);
 
-int is_critical(int nr);
+bool is_critical(struct syscall_throttle_query_result *);
 
 #endif

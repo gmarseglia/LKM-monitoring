@@ -1,4 +1,3 @@
-#include "linux/stddef.h"
 #include "syscall-throttle.h"
 
 /*
@@ -44,20 +43,28 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	}
 
 	/* If syscall request is critical */
-	if (unlikely(is_critical(sys_call_number))) {
+	struct syscall_throttle_query_result st_qr;
+	st_qr.nr = sys_call_number;
+	if (unlikely(is_critical(&st_qr))) {
 		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);
 
-		__ST_LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu",
-				 __ST_MODNAME, curr_req, current->pid,
-				 sys_call_number);
+		__ST_LOG_FINE pr_info(
+			"%s: probe #%05d hit, for pid %d, with ax=%lu",
+			__ST_MODNAME, curr_req, current->pid, sys_call_number);
 
 		/* If curr_avail < 0 ==> syscall has to be delayed */
 		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {
+			ktime_t start;
+			s64 delay_ms;
+
+			start = ktime_get();
+
 			/* If here, then syscall request has to be blocked */
-			__ST_LOG_FINE pr_info("%s: probe #%05d must be delayed, "
-					 "curr_req=%d",
-					 __ST_MODNAME, curr_req, curr_req);
+			__ST_LOG_FINE pr_info(
+				"%s: probe #%05d must be delayed, "
+				"curr_req=%d",
+				__ST_MODNAME, curr_req, curr_req);
 
 			/* Write NULL in the kprobe context in the
 			 * per-CPU memory */
@@ -74,11 +81,9 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			 * throttling is off */
 			wait_event_interruptible(
 				st_cxt->critical_sleeping_wq,
-				atomic_dec_return(&st_cxt->crit_avail) >=
-						0 ||
+				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
 					atomic_read(
-						&st_cxt
-							 ->throttle_running) ==
+						&st_cxt->throttle_running) ==
 						false);
 
 			/* Disable premption */
@@ -88,12 +93,29 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			/* Restore kprobe context */
 			this_cpu_write(*kprobe_context_p, p);
 
-			__ST_LOG_FINE pr_info("%s: probe #%05d has completed delay",
-					 __ST_MODNAME, curr_req);
+			delay_ms = ktime_ms_delta(ktime_get(), start);
+
+			struct syscall_throttle_delay_metrics *target_dm =
+				&st_dly_met[sys_call_number];
+			spin_lock(&target_dm->lock);
+
+			if (delay_ms > target_dm->max_delay_ms) {
+				target_dm->max_delay_ms = delay_ms;
+				memcpy(&target_dm->qr, &st_qr,
+				       sizeof(struct
+					      syscall_throttle_query_result));
+			}
+
+			spin_unlock(&target_dm->lock);
+
+			__ST_LOG_FINE pr_info(
+				"%s: probe #%05d has completed with delay "
+				"%lld ms",
+				__ST_MODNAME, curr_req, delay_ms);
 		}
 
-		__ST_LOG pr_info("%s: probe #%05d completed, for pid %d", __ST_MODNAME,
-			    curr_req, current->pid);
+		__ST_LOG pr_info("%s: probe #%05d completed, for pid %d",
+				 __ST_MODNAME, curr_req, current->pid);
 	}
 
 	return 0;
@@ -111,8 +133,8 @@ int load_throttle(void)
 
 	ret = register_kprobe(&st_cxt->probe_throttle);
 	if (ret < 0) {
-		pr_err("%s: register_kprobe failed, returned %d\n", __ST_MODNAME,
-		       ret);
+		pr_err("%s: register_kprobe failed, returned %d\n",
+		       __ST_MODNAME, ret);
 		return ret;
 	}
 

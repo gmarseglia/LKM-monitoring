@@ -152,23 +152,23 @@ int load_monitor(void)
 {
 	int ret;
 
-	st_cxt->sys_numbers_registry = bitmap_zalloc(MAX_NR, GFP_KERNEL);
+	st_cxt->sys_numbers_registry = bitmap_zalloc(__ST_MAX_NR, GFP_KERNEL);
 
 	ret = rhashtable_init(&st_cxt->pids_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
 		return ret;
 	}
 
 	ret = rhashtable_init(&st_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
 		return ret;
 	}
 
 	ret = rhashtable_init(&st_cxt->prog_names_registry, &registry_params);
 	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", MODNAME, ret);
+		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME, ret);
 		return ret;
 	}
 

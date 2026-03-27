@@ -9,7 +9,7 @@
 void update_limit_and_wake(void)
 {
 	/* Updates the limits according the number of requests */
-	atomic_set(&st_cxt->crit_avail, CRITICAL_PER_UNIT);
+	atomic_set(&st_cxt->crit_avail, __ST_CRITICAL_PER_UNIT);
 
 	/* Wakes up the event wait queue */
 	wake_up_interruptible(&st_cxt->critical_sleeping_wq);
@@ -35,11 +35,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 	/* Sanity check for preemption and interrupts */
 	if (preempt_count() == 0) {
-		pr_alert("%s: found preemptable, aborting.", MODNAME);
+		pr_alert("%s: found preemptable, aborting.", __ST_MODNAME);
 		return 0;
 	}
 	if (irqs_disabled()) {
-		pr_alert("%s: irqs are disabled, aborting.", MODNAME);
+		pr_alert("%s: irqs are disabled, aborting.", __ST_MODNAME);
 		return 0;
 	}
 
@@ -48,16 +48,16 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);
 
-		LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu",
-				 MODNAME, curr_req, current->pid,
+		__ST_LOG_FINE pr_info("%s: probe #%05d hit, for pid %d, with ax=%lu",
+				 __ST_MODNAME, curr_req, current->pid,
 				 sys_call_number);
 
 		/* If curr_avail < 0 ==> syscall has to be delayed */
 		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {
 			/* If here, then syscall request has to be blocked */
-			LOG_FINE pr_info("%s: probe #%05d must be delayed, "
+			__ST_LOG_FINE pr_info("%s: probe #%05d must be delayed, "
 					 "curr_req=%d",
-					 MODNAME, curr_req, curr_req);
+					 __ST_MODNAME, curr_req, curr_req);
 
 			/* Write NULL in the kprobe context in the
 			 * per-CPU memory */
@@ -88,11 +88,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			/* Restore kprobe context */
 			this_cpu_write(*kprobe_context_p, p);
 
-			LOG_FINE pr_info("%s: probe #%05d has completed delay",
-					 MODNAME, curr_req);
+			__ST_LOG_FINE pr_info("%s: probe #%05d has completed delay",
+					 __ST_MODNAME, curr_req);
 		}
 
-		LOG pr_info("%s: probe #%05d completed, for pid %d", MODNAME,
+		__ST_LOG pr_info("%s: probe #%05d completed, for pid %d", __ST_MODNAME,
 			    curr_req, current->pid);
 	}
 
@@ -106,12 +106,12 @@ int load_throttle(void)
 {
 	int ret;
 
-	st_cxt->probe_throttle.symbol_name = DISPATCHER_SYMBOL_NAME;
+	st_cxt->probe_throttle.symbol_name = __ST_DISPATCHER_SYMBOL_NAME;
 	st_cxt->probe_throttle.pre_handler = pre_handler_throttle;
 
 	ret = register_kprobe(&st_cxt->probe_throttle);
 	if (ret < 0) {
-		pr_err("%s: register_kprobe failed, returned %d\n", MODNAME,
+		pr_err("%s: register_kprobe failed, returned %d\n", __ST_MODNAME,
 		       ret);
 		return ret;
 	}

@@ -18,11 +18,11 @@ static int initfn(void)
 	atomic_set(&st_cxt->throttle_running, false);
 	atomic_set(&st_cxt->crit_req, 0);
 	atomic_set(&st_cxt->crit_sleep, 0);
-	atomic_set(&st_cxt->crit_avail, CRITICAL_PER_UNIT);
+	atomic_set(&st_cxt->crit_avail, __ST_CRITICAL_PER_UNIT);
 	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
 	mutex_init(&st_cxt->operation_synchronizer);
 
-	pr_info("%s: module correctly loaded\n", MODNAME);
+	pr_info("%s: module correctly loaded\n", __ST_MODNAME);
 
 	ret = load_driver();
 	if (ret != 0)
@@ -77,11 +77,11 @@ static void exitfn(void)
 	/* Wait for all thread to exit the  */
 	while (atomic_read(&st_cxt->crit_sleep) != 0)
 		msleep(20);
-	pr_info("%s: all sleeping thread have completed\n", MODNAME);
+	pr_info("%s: all sleeping thread have completed\n", __ST_MODNAME);
 
 	/* Unregister the kprobe */
 	unregister_kprobe(&st_cxt->probe_throttle);
-	pr_info("%s: kprobe at %p unregistered\n", MODNAME,
+	pr_info("%s: kprobe at %p unregistered\n", __ST_MODNAME,
 		st_cxt->probe_throttle.addr);
 
 	/* Unload the monitor */
@@ -91,7 +91,7 @@ static void exitfn(void)
 	unload_metrics();
 
 	kfree(st_cxt);
-	pr_info("%s: module correctly unloaded\n", MODNAME);
+	pr_info("%s: module correctly unloaded\n", __ST_MODNAME);
 }
 
 module_init(initfn);

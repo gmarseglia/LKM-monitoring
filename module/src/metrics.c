@@ -10,7 +10,7 @@ void update_sleep_metrics(void)
 	spin_lock_bh(&st_slp_met->lock); // #TODO: investigate more on _bh
 
 	int curr_sleep = atomic_read(&st_cxt->crit_sleep) *
-			 SYS_THR_METRICS_SCALING_FACTOR;
+			 __ST_METRICS_SCALING_FACTOR;
 
 	st_slp_met->max_sleep = MAX(curr_sleep, st_slp_met->max_sleep);
 
@@ -21,9 +21,9 @@ void update_sleep_metrics(void)
 	st_slp_met->avg_sleep =
 		(total_sleep + curr_sleep) / st_slp_met->units_passed;
 
-	pr_info("%s: max_sleep=%lu, avg_sleep=%lu, units_passed=%lu\n", MODNAME,
-		st_slp_met->max_sleep / SYS_THR_METRICS_SCALING_FACTOR,
-		st_slp_met->avg_sleep / SYS_THR_METRICS_SCALING_FACTOR,
+	pr_info("%s: max_sleep=%lu, avg_sleep=%lu, units_passed=%lu\n", __ST_MODNAME,
+		st_slp_met->max_sleep / __ST_METRICS_SCALING_FACTOR,
+		st_slp_met->avg_sleep / __ST_METRICS_SCALING_FACTOR,
 		st_slp_met->units_passed);
 
 	spin_unlock_bh(&st_slp_met->lock);
@@ -37,7 +37,7 @@ int load_metrics(void)
 	if (!st_slp_met) {
 		pr_err("%s: failed to allocate memory for "
 		       "syscall_throttle_metrics",
-		       MODNAME);
+		       __ST_MODNAME);
 		return -ENOMEM;
 	}
 

@@ -33,17 +33,19 @@
 #include <linux/uidgid.h>
 #include <linux/wait.h>
 
-#define MODNAME "SYSCALL-THROTTLE"
+#define __ST_MODNAME "SYSCALL-THROTTLE"
 
-#define LOG if (1)
-#define LOG_FINE if (0)
-#define LOG_FINEST if (0)
+#define __ST_LOG if (1)
+#define __ST_LOG_FINE if (0)
+#define __ST_LOG_FINEST if (0)
 
-#define DISPATCHER_SYMBOL_NAME "x64_sys_call"
-#define TIMER_INTERVAL 1000
-#define CRITICAL_PER_UNIT 3
-#define MAX_NR 323
+#define __ST_DISPATCHER_SYMBOL_NAME "x64_sys_call"
+#define __ST_TIMER_INTERVAL 1000
+#define __ST_CRITICAL_PER_UNIT 3
+
+#define __ST_MAX_NR 323
 #define __ST_MAX_STR_LEN 64
+#define __ST_METRICS_SCALING_FACTOR 100000
 
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 
@@ -74,8 +76,6 @@ struct syscall_throttle_context {
 	struct class *my_class;
 	struct device *my_device;
 };
-
-#define SYS_THR_METRICS_SCALING_FACTOR 100000
 
 struct syscall_throttle_sleep_metrics {
 	spinlock_t lock;

@@ -17,13 +17,13 @@ static struct file_operations fops = {.owner = THIS_MODULE,
 
 static int dev_open(struct inode *inode, struct file *file)
 {
-	pr_info("%s: dev_open request", MODNAME);
+	pr_info("%s: dev_open request", __ST_MODNAME);
 	return 0;
 }
 
 static int dev_release(struct inode *inode, struct file *file)
 {
-	pr_info("%s: dev_release request", MODNAME);
+	pr_info("%s: dev_release request", __ST_MODNAME);
 	return 0;
 }
 
@@ -39,7 +39,7 @@ static int convert_to_string(unsigned long param, char *str_param)
 static long
 dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 {
-	pr_info("%s: ioctl invoked with command=%d and param=%lu", MODNAME,
+	pr_info("%s: ioctl invoked with command=%d and param=%lu", __ST_MODNAME,
 		_IOC_NR(command), param);
 
 	char str_param[64];
@@ -54,7 +54,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_REGISTER_NR:
 	case IOCTL_UNREGISTER_NR:
 		nr = (int)param;
-		pr_info("%s: ioctl executing with nr=%d", MODNAME, nr);
+		pr_info("%s: ioctl executing with nr=%d", __ST_MODNAME, nr);
 		break;
 	case IOCTL_REGISTER_PID:
 	case IOCTL_UNREGISTER_PID:
@@ -64,14 +64,14 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_UNREGISTER_PROG_NAME:
 		if (convert_to_string(param, str_param) < 0) {
 			pr_warn("%s: Unable to convert param to string\n",
-				MODNAME);
+				__ST_MODNAME);
 			return -EINVAL;
 		}
-		pr_info("%s: ioctl executing with str_param=%s", MODNAME,
+		pr_info("%s: ioctl executing with str_param=%s", __ST_MODNAME,
 			str_param);
 		break;
 	default:
-		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
+		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME, command);
 		return -ENOTTY;
 	}
 
@@ -92,7 +92,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		ret = unregister_critical_num(nr);
 		break;
 	case IOCTL_REGISTER_PID:
-		pr_info("%s: command=IOCTL_REGISTER_PID", MODNAME);
+		pr_info("%s: command=IOCTL_REGISTER_PID", __ST_MODNAME);
 		ret = register_critical_str(str_param,
 					    &st_cxt->pids_registry);
 		break;
@@ -117,7 +117,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 			str_param, &st_cxt->prog_names_registry);
 		break;
 	default:
-		pr_warn("%s: Unknown ioctl command: %u\n", MODNAME, command);
+		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME, command);
 		ret = -ENOTTY;
 	}
 
@@ -126,12 +126,12 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 
 int load_driver(void)
 {
-	int Major = register_chrdev(0, MODNAME, &fops);
+	int Major = register_chrdev(0, __ST_MODNAME, &fops);
 	if (Major < 0) {
-		pr_err("%s: register_chrdev returned %d", MODNAME, Major);
+		pr_err("%s: register_chrdev returned %d", __ST_MODNAME, Major);
 		return Major;
 	}
-	pr_info("%s: char device driver registered with Major=%d", MODNAME,
+	pr_info("%s: char device driver registered with Major=%d", __ST_MODNAME,
 		Major);
 	st_cxt->Major = Major;
 
@@ -145,14 +145,14 @@ void unload_driver(void)
 	destroy_device();
 
 	// #TODO: check if devices are still open
-	unregister_chrdev(st_cxt->Major, MODNAME);
+	unregister_chrdev(st_cxt->Major, __ST_MODNAME);
 }
 
 static int create_device(void)
 {
-	st_cxt->my_class = class_create(MODNAME);
+	st_cxt->my_class = class_create(__ST_MODNAME);
 	if (IS_ERR(st_cxt->my_class)) { // #TODO: what is this?
-		unregister_chrdev(st_cxt->Major, MODNAME);
+		unregister_chrdev(st_cxt->Major, __ST_MODNAME);
 		return PTR_ERR(st_cxt->my_class);
 	}
 
@@ -161,7 +161,7 @@ static int create_device(void)
 			      MKDEV(st_cxt->Major, 0), NULL, "sys_thr");
 	if (IS_ERR(st_cxt->my_device)) {
 		class_destroy(st_cxt->my_class);
-		unregister_chrdev(st_cxt->Major, MODNAME);
+		unregister_chrdev(st_cxt->Major, __ST_MODNAME);
 		return PTR_ERR(st_cxt->my_device);
 	}
 

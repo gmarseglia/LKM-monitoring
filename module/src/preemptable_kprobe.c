@@ -6,7 +6,7 @@
 */
 static void dummy_run(void *arg)
 {
-	LOG_FINEST pr_info("%s: dummy running on CPU %d", MODNAME,
+	__ST_LOG_FINEST pr_info("%s: dummy running on CPU %d", __ST_MODNAME,
 			   smp_processor_id());
 	return;
 }
@@ -18,7 +18,7 @@ static void dummy_run(void *arg)
 static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 {
 
-	LOG_FINE pr_info("%s: pre_handler_search running on CPU %d", MODNAME,
+	__ST_LOG_FINE pr_info("%s: pre_handler_search running on CPU %d", __ST_MODNAME,
 			 smp_processor_id());
 
 	/* Brute force search for the position of the kprobe context */
@@ -27,7 +27,7 @@ static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 		temp--;
 		// current kprobe context is p
 		if ((struct kprobe *)this_cpu_read(*temp) == p) {
-			pr_info("%s: found on CPU %d at %p", MODNAME,
+			pr_info("%s: found on CPU %d at %p", __ST_MODNAME,
 				smp_processor_id(), temp);
 			this_cpu_write(saved_kprobe_context_p, temp);
 			atomic_inc(&st_cxt->hack_ready_on_cpu);
@@ -35,7 +35,7 @@ static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 		}
 	}
 	if (temp == 0) {
-		pr_err("%s: NOT found on CPU %d", MODNAME, smp_processor_id());
+		pr_err("%s: NOT found on CPU %d", __ST_MODNAME, smp_processor_id());
 		return 0;
 	}
 
@@ -60,7 +60,7 @@ int load_hack_search(void)
 
 	ret = register_kprobe(&search_probe);
 	if (ret < 0) {
-		pr_err("%s: register_kprobe failed, returned %d\n", MODNAME,
+		pr_err("%s: register_kprobe failed, returned %d\n", __ST_MODNAME,
 		       ret);
 		return ret;
 	}
@@ -70,13 +70,13 @@ int load_hack_search(void)
 	on_each_cpu(dummy_run, NULL, 1);
 	if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
 		pr_err("%s: load_hack_search did not complete on every CPU.",
-		       MODNAME);
+		       __ST_MODNAME);
 	}
 
 	/* Unregister the search probe */
 	unregister_kprobe(&search_probe);
 
-	pr_info("%s: load_hack_search completed.", MODNAME);
+	pr_info("%s: load_hack_search completed.", __ST_MODNAME);
 
 	return 0;
 }

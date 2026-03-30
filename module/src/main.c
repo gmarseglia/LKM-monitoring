@@ -24,19 +24,11 @@ static int initfn(void)
 
 	pr_info("%s: module correctly loaded\n", __ST_MODNAME);
 
-	ret = load_driver();
-	if (ret != 0)
-		return ret;
-
 	ret = load_hack_search();
 	if (ret != 0)
 		return ret;
 
 	ret = load_metrics();
-	if (ret != 0)
-		return ret;
-
-	ret = load_metrics_driver();
 	if (ret != 0)
 		return ret;
 
@@ -49,6 +41,14 @@ static int initfn(void)
 		return ret;
 
 	ret = load_throttle();
+	if (ret != 0)
+		return ret;
+
+	ret = load_driver();
+	if (ret != 0)
+		return ret;
+
+	ret = load_metrics_driver();
 	if (ret != 0)
 		return ret;
 

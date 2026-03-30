@@ -122,15 +122,6 @@ bool is_critical(struct syscall_throttle_query_result *st_qr)
 		return false;
 	}
 
-	/* Get PID */
-	snprintf(st_qr->pid, __ST_MAX_NR, "%d", current->pid);
-
-	/* Check PID */
-	if (is_registered_str(st_qr->pid, &st_cxt->pids_registry)) {
-		st_qr->is_critical = true;
-		st_qr->type = "PID";
-	}
-
 	/* Get eUID */
 	kuid_t current_kuid = current_euid();
 	uid_t euid_val = from_kuid(&init_user_ns, current_kuid);
@@ -164,13 +155,6 @@ int load_monitor(void)
 
 	st_cxt->sys_numbers_registry = bitmap_zalloc(__ST_MAX_NR, GFP_KERNEL);
 
-	ret = rhashtable_init(&st_cxt->pids_registry, &registry_params);
-	if (ret < 0) {
-		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME,
-		       ret);
-		return ret;
-	}
-
 	ret = rhashtable_init(&st_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
 		pr_err("%s: rhashtable_init failed with err=%d", __ST_MODNAME,
@@ -191,9 +175,6 @@ int load_monitor(void)
 void unload_monitor(void)
 {
 	bitmap_free(st_cxt->sys_numbers_registry);
-
-	rhashtable_free_and_destroy(&st_cxt->pids_registry, my_registry_free_fn,
-				    NULL);
 
 	rhashtable_free_and_destroy(&st_cxt->euid_registry, my_registry_free_fn,
 				    NULL);

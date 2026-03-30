@@ -56,8 +56,6 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		nr = (int)param;
 		pr_info("%s: ioctl executing with nr=%d", __ST_MODNAME, nr);
 		break;
-	case IOCTL_REGISTER_PID:
-	case IOCTL_UNREGISTER_PID:
 	case IOCTL_REGISTER_EUID:
 	case IOCTL_UNREGISTER_EUID:
 	case IOCTL_REGISTER_PROG_NAME:
@@ -90,15 +88,6 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		break;
 	case IOCTL_UNREGISTER_NR:
 		ret = unregister_critical_num(nr);
-		break;
-	case IOCTL_REGISTER_PID:
-		pr_info("%s: command=IOCTL_REGISTER_PID", __ST_MODNAME);
-		ret = register_critical_str(str_param,
-					    &st_cxt->pids_registry);
-		break;
-	case IOCTL_UNREGISTER_PID:
-		ret = unregister_critical_str(str_param,
-					      &st_cxt->pids_registry);
 		break;
 	case IOCTL_REGISTER_EUID:
 		ret = register_critical_str(str_param,

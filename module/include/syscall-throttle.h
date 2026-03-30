@@ -18,6 +18,7 @@
 #include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/percpu-defs.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
 #include <linux/proc_fs.h>
@@ -26,6 +27,7 @@
 #include <linux/rhashtable.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
+#include <linux/seqlock.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
 #include <linux/spinlock_types.h>
@@ -64,7 +66,6 @@ struct syscall_throttle_context {
 
 	/* For monitoring */
 	unsigned long *sys_numbers_registry;
-	struct rhashtable pids_registry;
 	struct rhashtable euid_registry;
 	struct rhashtable prog_names_registry;
 
@@ -100,20 +101,19 @@ struct syscall_throttle_query_result {
 	bool is_critical;
 	int nr;
 	char *type;
-	char pid[__ST_MAX_STR_LEN];
 	char euid[__ST_MAX_STR_LEN];
 	char name[__ST_MAX_STR_LEN];
 };
 
 struct syscall_throttle_delay_metrics {
-	spinlock_t lock;
+	seqcount_t count;
 	s64 max_delay_ms;
 	struct syscall_throttle_query_result qr;
 };
 
 extern struct syscall_throttle_context *st_cxt;
 extern struct syscall_throttle_sleep_metrics *st_slp_met;
-extern struct syscall_throttle_delay_metrics *st_dly_met;
+extern struct syscall_throttle_delay_metrics st_dly_met;
 
 int load_throttle(void);
 int load_hack_search(void);

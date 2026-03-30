@@ -29,7 +29,6 @@ int main(int argc, char **argv) {
   unsigned long COMMANDS[] = {
       IOCTL_START_THROTTLE,     IOCTL_STOP_THROTTLE,
       IOCTL_REGISTER_NR,        IOCTL_UNREGISTER_NR,
-      IOCTL_REGISTER_PID,       IOCTL_UNREGISTER_PID,
       IOCTL_REGISTER_EUID,      IOCTL_UNREGISTER_EUID,
       IOCTL_REGISTER_PROG_NAME, IOCTL_UNREGISTER_PROG_NAME};
 
@@ -56,8 +55,6 @@ int main(int argc, char **argv) {
       printf("ioctl failed with error %d: %s\n", errno, strerror(errno));
     }
     break;
-  case IOCTL_REGISTER_PID:
-  case IOCTL_UNREGISTER_PID:
   case IOCTL_REGISTER_EUID:
   case IOCTL_UNREGISTER_EUID:
   case IOCTL_REGISTER_PROG_NAME:

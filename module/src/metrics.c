@@ -1,7 +1,7 @@
 #include "syscall-throttle.h"
 
 struct syscall_throttle_sleep_metrics *st_slp_met = NULL;
-struct syscall_throttle_delay_metrics *st_dly_met = NULL;
+DEFINE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 
 void update_sleep_metrics(void)
 {
@@ -47,41 +47,15 @@ int load_metrics(void)
 	spin_lock_init(&st_slp_met->lock);
 
 	/* Allocate and initialize the structs for delay metrics */
-	st_dly_met = kzalloc(sizeof(struct syscall_throttle_delay_metrics) *
-				     __ST_MAX_NR,
-			     GFP_KERNEL);
-	if (!st_dly_met) {
-		pr_err("%s: failed to allocate memory for "
-		       "syscall_throttle_delay_metrics",
-		       __ST_MODNAME);
-		return -ENOMEM;
-	}
-
-	for (int nr = 0; nr < __ST_MAX_NR; nr++) {
-		spin_lock_init(&(st_dly_met[nr].lock));
+	int cpu;
+	struct syscall_throttle_delay_metrics dm;
+	for_each_possible_cpu(cpu)
+	{
+		dm = per_cpu(st_dly_met, cpu);
+		seqcount_init(&dm.count);
 	}
 
 	return 0;
 }
 
-static void print_metrics(void)
-{
-	for (int nr = 0; nr < 10; nr++) {
-		struct syscall_throttle_delay_metrics *dm = &st_dly_met[nr];
-
-		spin_lock(&dm->lock);
-
-		pr_info("nr:%d, euid:%s, name:%s, type:%s -> max_delay=%lld ms",
-			dm->qr.nr, dm->qr.euid, dm->qr.name, dm->qr.type,
-			dm->max_delay_ms);
-
-		spin_unlock(&dm->lock);
-	}
-}
-
-void unload_metrics(void)
-{
-	// print_metrics();
-	kfree(st_slp_met);
-	kfree(st_dly_met);
-}
+void unload_metrics(void) { kfree(st_slp_met); }

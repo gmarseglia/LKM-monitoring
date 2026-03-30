@@ -126,6 +126,42 @@ static int sleep_metrics_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int delay_metrics_show(struct seq_file *m, void *v)
+{
+	int cpu;
+	unsigned int seq;
+	struct syscall_throttle_delay_metrics max_global_dm;
+	struct syscall_throttle_delay_metrics max_local_dm;
+	struct syscall_throttle_delay_metrics *cpu_dm;
+
+	max_global_dm.max_delay_ms = -1;
+
+	/* Find the global max from the local max */
+	for_each_possible_cpu(cpu)
+	{
+		do {
+			cpu_dm = per_cpu_ptr(&st_dly_met, cpu);
+			seq = read_seqcount_begin(&cpu_dm->count);
+			memcpy(&max_local_dm, cpu_dm,
+			       sizeof(struct syscall_throttle_delay_metrics));
+		} while (read_seqcount_retry(&cpu_dm->count, seq));
+
+		if (max_local_dm.max_delay_ms > max_global_dm.max_delay_ms) {
+			memcpy(&max_global_dm, &max_local_dm,
+			       sizeof(struct syscall_throttle_delay_metrics));
+		}
+	}
+
+	seq_printf(
+		m,
+		"nr=%d\ntype=%s\neuid=%s\nprogram_name=%s\ndelay_in_ms=%lld\n",
+		max_global_dm.qr.nr, max_global_dm.qr.type,
+		max_global_dm.qr.euid, max_global_dm.qr.name,
+		max_global_dm.max_delay_ms);
+
+	return 0;
+}
+
 int load_metrics_driver(void)
 {
 	st_cxt->my_proc_dir = proc_mkdir(__ST_MODNAME, NULL);
@@ -144,6 +180,9 @@ int load_metrics_driver(void)
 	proc_create_single("sleep_metrics", 0444, st_cxt->my_proc_dir,
 			   sleep_metrics_show);
 
+	proc_create_single("delay_metrics", 0444, st_cxt->my_proc_dir,
+			   delay_metrics_show);
+
 	return 0;
 }
 
@@ -153,5 +192,6 @@ void unload_metrics_driver(void)
 	remove_proc_entry("euid", st_cxt->my_proc_dir);
 	remove_proc_entry("nr", st_cxt->my_proc_dir);
 	remove_proc_entry("sleep_metrics", st_cxt->my_proc_dir);
+	remove_proc_entry("delay_metrics", st_cxt->my_proc_dir);
 	remove_proc_entry(__ST_MODNAME, NULL);
 }

@@ -95,18 +95,20 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 			delay_ms = ktime_ms_delta(ktime_get(), start);
 
-			struct syscall_throttle_delay_metrics *target_dm =
-				&st_dly_met[sys_call_number];
-			spin_lock(&target_dm->lock);
+			struct syscall_throttle_delay_metrics *target_dm;
+			target_dm = this_cpu_ptr(&st_dly_met);
 
 			if (delay_ms > target_dm->max_delay_ms) {
+				write_seqcount_begin(&target_dm->count);
+
 				target_dm->max_delay_ms = delay_ms;
+
 				memcpy(&target_dm->qr, &st_qr,
 				       sizeof(struct
 					      syscall_throttle_query_result));
-			}
 
-			spin_unlock(&target_dm->lock);
+				write_seqcount_end(&target_dm->count);
+			}
 
 			__ST_LOG_FINE pr_info(
 				"%s: probe #%05d has completed with delay "

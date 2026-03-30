@@ -1,0 +1,12 @@
+No module:
+total=49.055 sec, mean=490.548 msec, stddev=24.380 msec
+
+Yes module, inactive:
+total=52.680 sec, mean=526.795 msec, stddev=21.804 msec
+
+Yes module, active, no nr:
+total=55.541 sec, mean=555.411 msec, stddev=42.511 msec
+
+Yes module, active, yer nr, no euid/name:
+total=63.539 sec, mean=635.385 msec, stddev=39.388 msec
+

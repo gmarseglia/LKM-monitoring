@@ -43,7 +43,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		_IOC_NR(command), param);
 
 	char str_param[64];
-	int nr;
+	int int_param;
 
 	/* Convert param according to command */
 	switch (command) {
@@ -53,8 +53,10 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		break;
 	case IOCTL_REGISTER_NR:
 	case IOCTL_UNREGISTER_NR:
-		nr = (int)param;
-		pr_info("%s: ioctl executing with nr=%d", __ST_MODNAME, nr);
+	case IOCTL_SET_LIMIT:
+		int_param = (int)param;
+		pr_info("%s: ioctl executing with int_param=%d", __ST_MODNAME,
+			int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
 	case IOCTL_UNREGISTER_EUID:
@@ -69,7 +71,8 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 			str_param);
 		break;
 	default:
-		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME, command);
+		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME,
+			command);
 		return -ENOTTY;
 	}
 
@@ -84,14 +87,13 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		update_limit_and_wake();
 		break;
 	case IOCTL_REGISTER_NR:
-		ret = register_critical_num(nr);
+		ret = register_critical_num(int_param);
 		break;
 	case IOCTL_UNREGISTER_NR:
-		ret = unregister_critical_num(nr);
+		ret = unregister_critical_num(int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
-		ret = register_critical_str(str_param,
-					    &st_cxt->euid_registry);
+		ret = register_critical_str(str_param, &st_cxt->euid_registry);
 		break;
 	case IOCTL_UNREGISTER_EUID:
 		ret = unregister_critical_str(str_param,
@@ -102,11 +104,16 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 					    &st_cxt->prog_names_registry);
 		break;
 	case IOCTL_UNREGISTER_PROG_NAME:
-		ret = unregister_critical_str(
-			str_param, &st_cxt->prog_names_registry);
+		ret = unregister_critical_str(str_param,
+					      &st_cxt->prog_names_registry);
+		break;
+	case IOCTL_SET_LIMIT:
+		atomic_set(&st_cxt->crit_limit, int_param);
+		ret = 0;
 		break;
 	default:
-		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME, command);
+		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME,
+			command);
 		ret = -ENOTTY;
 	}
 
@@ -146,8 +153,8 @@ static int create_device(void)
 	}
 
 	st_cxt->my_device =
-		device_create(st_cxt->my_class, NULL,
-			      MKDEV(st_cxt->Major, 0), NULL, "sys_thr");
+		device_create(st_cxt->my_class, NULL, MKDEV(st_cxt->Major, 0),
+			      NULL, "sys_thr");
 	if (IS_ERR(st_cxt->my_device)) {
 		class_destroy(st_cxt->my_class);
 		unregister_chrdev(st_cxt->Major, __ST_MODNAME);

@@ -17,7 +17,8 @@ static int initfn(void)
 	atomic_set(&st_cxt->throttle_running, false);
 	atomic_set(&st_cxt->crit_req, 0);
 	atomic_set(&st_cxt->crit_sleep, 0);
-	atomic_set(&st_cxt->crit_avail, __ST_CRITICAL_PER_UNIT);
+	atomic_set(&st_cxt->crit_avail, __ST_BASE_CRIT_LIMIT);
+	atomic_set(&st_cxt->crit_limit, __ST_BASE_CRIT_LIMIT);
 	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
 	mutex_init(&st_cxt->operation_synchronizer);
 

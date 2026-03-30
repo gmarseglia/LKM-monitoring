@@ -46,7 +46,7 @@
 
 #define __ST_DISPATCHER_SYMBOL_NAME "x64_sys_call"
 #define __ST_TIMER_INTERVAL 1000
-#define __ST_CRITICAL_PER_UNIT 3
+#define __ST_BASE_CRIT_LIMIT 1
 
 #define __ST_MAX_NR 323
 #define __ST_MAX_STR_LEN 64
@@ -72,6 +72,7 @@ struct syscall_throttle_context {
 	/* For throttling */
 	struct kprobe probe_throttle;
 	atomic_t throttle_running;
+	atomic_t crit_limit;
 	atomic_t crit_req;
 	atomic_t crit_avail;
 	atomic_t crit_sleep;

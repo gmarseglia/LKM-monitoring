@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
       IOCTL_START_THROTTLE,     IOCTL_STOP_THROTTLE,
       IOCTL_REGISTER_NR,        IOCTL_UNREGISTER_NR,
       IOCTL_REGISTER_EUID,      IOCTL_UNREGISTER_EUID,
-      IOCTL_REGISTER_PROG_NAME, IOCTL_UNREGISTER_PROG_NAME};
+      IOCTL_REGISTER_PROG_NAME, IOCTL_UNREGISTER_PROG_NAME,
+      IOCTL_SET_LIMIT};
 
   unsigned long command = -1;
   int argv1;
@@ -50,6 +51,7 @@ int main(int argc, char **argv) {
     break;
   case IOCTL_REGISTER_NR:
   case IOCTL_UNREGISTER_NR:
+  case IOCTL_SET_LIMIT:
     sscanf(argv[2], "%d", &argv2);
     if (ioctl(fd_char, command, argv2) < 0) {
       printf("ioctl failed with error %d: %s\n", errno, strerror(errno));

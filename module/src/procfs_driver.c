@@ -1,3 +1,5 @@
+#include "linux/proc_fs.h"
+#include "linux/seq_file.h"
 #include "syscall-throttle.h"
 
 struct rhash_seq_state {
@@ -162,6 +164,12 @@ static int delay_metrics_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int config_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "limit=%d\n", atomic_read(&st_cxt->crit_limit));
+	return 0;
+}
+
 int load_metrics_driver(void)
 {
 	st_cxt->my_proc_dir = proc_mkdir(__ST_MODNAME, NULL);
@@ -183,6 +191,8 @@ int load_metrics_driver(void)
 	proc_create_single("delay_metrics", 0444, st_cxt->my_proc_dir,
 			   delay_metrics_show);
 
+	proc_create_single("config", 0444, st_cxt->my_proc_dir, config_show);
+
 	return 0;
 }
 
@@ -193,5 +203,6 @@ void unload_metrics_driver(void)
 	remove_proc_entry("nr", st_cxt->my_proc_dir);
 	remove_proc_entry("sleep_metrics", st_cxt->my_proc_dir);
 	remove_proc_entry("delay_metrics", st_cxt->my_proc_dir);
+	remove_proc_entry("config", st_cxt->my_proc_dir);
 	remove_proc_entry(__ST_MODNAME, NULL);
 }

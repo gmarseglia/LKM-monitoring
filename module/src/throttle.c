@@ -8,7 +8,7 @@
 void update_limit_and_wake(void)
 {
 	/* Updates the limits according the number of requests */
-	atomic_set(&st_cxt->crit_avail, __ST_CRITICAL_PER_UNIT);
+	atomic_set(&st_cxt->crit_avail, atomic_read(&st_cxt->crit_limit));
 
 	/* Wakes up the event wait queue */
 	wake_up_interruptible(&st_cxt->critical_sleeping_wq);

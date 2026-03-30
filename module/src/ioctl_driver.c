@@ -93,27 +93,19 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		ret = unregister_critical_num(int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
-		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = register_critical_str(str_param, &st_cxt->euid_registry);
-		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_UNREGISTER_EUID:
-		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = unregister_critical_str(str_param,
 					      &st_cxt->euid_registry);
-		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_REGISTER_PROG_NAME:
-		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = register_critical_str(str_param,
 					    &st_cxt->prog_names_registry);
-		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_UNREGISTER_PROG_NAME:
-		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = unregister_critical_str(str_param,
 					      &st_cxt->prog_names_registry);
-		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_SET_LIMIT:
 		atomic_set(&st_cxt->crit_limit, int_param);

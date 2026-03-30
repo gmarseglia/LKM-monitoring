@@ -20,7 +20,7 @@ static int initfn(void)
 	atomic_set(&st_cxt->crit_limit, __ST_BASE_CRIT_LIMIT);
 
 	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
-	mutex_init(&st_cxt->ioctl_mutex);
+	mutex_init(&st_cxt->registry_mutex);
 
 	ret = load_hack_search();
 	if (ret != 0)

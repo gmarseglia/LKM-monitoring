@@ -33,48 +33,64 @@ static struct rhashtable_params registry_params = {
 int register_critical_str(char *new_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
-	int err;
+	int ret;
+
+	mutex_lock(&st_cxt->registry_mutex);
 
 	rcu_read_lock();
 	entry = rhashtable_lookup_fast(ht, new_str, registry_params);
 	rcu_read_unlock();
 
 	/* If found, then skip insert */
-	if (entry)
-		return 0;
+	if (entry) {
+		ret = 0;
+		goto end_register;
+	}
 
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
-	if (!entry)
-		return -ENOMEM;
+	if (!entry) {
+		ret = -ENOMEM;
+		goto end_register;
+	}
 
 	/* Safely copy the string into our structure */
 	strscpy(entry->string_key, new_str, sizeof(entry->string_key));
 
 	/* Insert it. The kernel handles the bucket locking internally. */
-	err = rhashtable_insert_fast(ht, &entry->linkage, registry_params);
-	if (err) {
+	ret = rhashtable_insert_fast(ht, &entry->linkage, registry_params);
+	if (ret) {
 		kfree(entry);
-		return err;
+		goto end_register;
 	}
 
-	return 0;
+end_register:
+	mutex_unlock(&st_cxt->registry_mutex);
+	return ret;
 }
 
 int unregister_critical_str(char *target_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
+	int ret;
+
+	mutex_lock(&st_cxt->registry_mutex);
 
 	rcu_read_lock();
 	entry = rhashtable_lookup_fast(ht, target_str, registry_params);
 	rcu_read_unlock();
 
-	if (!entry)
-		return 0; /* Not found */
+	/* Not found */
+	if (!entry) {
+		ret = 0;
+		goto end_unregister;
+	}
 
 	if (rhashtable_remove_fast(ht, &entry->linkage, registry_params) == 0) {
 		kfree_rcu(entry, rcu);
 	}
 
+end_unregister:
+	mutex_unlock(&st_cxt->registry_mutex);
 	return 0;
 }
 
@@ -116,9 +132,10 @@ int unregister_critical_num(unsigned int nr)
 */
 inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 {
+	st_qr->is_critical = false;
+
 	/* Check syscall */
 	if (!test_bit(st_qr->nr, st_cxt->nr_registry)) {
-		st_qr->is_critical = false;
 		return false;
 	}
 

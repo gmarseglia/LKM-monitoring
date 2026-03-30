@@ -66,6 +66,7 @@ struct syscall_throttle_context {
 	atomic_t hack_ready_on_cpu;
 
 	/* For monitoring */
+	struct mutex registry_mutex;
 	unsigned long *nr_registry;
 	struct rhashtable euid_registry;
 	struct rhashtable prog_names_registry;
@@ -84,7 +85,6 @@ struct syscall_throttle_context {
 
 	/* For ioctl driver */
 	int Major;
-	struct mutex ioctl_mutex;
 	struct class *my_class;
 	struct device *my_device;
 

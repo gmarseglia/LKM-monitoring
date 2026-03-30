@@ -35,6 +35,14 @@ int register_critical_str(char *new_str, struct rhashtable *ht)
 	struct string_entry *entry;
 	int err;
 
+	rcu_read_lock();
+	entry = rhashtable_lookup_fast(ht, new_str, registry_params);
+	rcu_read_unlock();
+
+	/* If found, then skip insert */
+	if (entry)
+		return 0;
+
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
@@ -138,7 +146,6 @@ bool is_critical(struct syscall_throttle_query_result *st_qr)
 
 	/* Get program name */
 	snprintf(st_qr->name, __ST_MAX_STR_LEN, "%s", current->comm);
-
 	/* Check program name */
 	if (!st_qr->is_critical) {
 		if (is_registered_str(st_qr->name,

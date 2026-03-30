@@ -1,7 +1,8 @@
 #include "syscall-throttle.h"
 
 DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
-struct syscall_throttle_context *st_cxt = NULL;
+struct syscall_throttle_context __st_cxt;
+struct syscall_throttle_context *st_cxt = &__st_cxt;
 
 /*
   Module init function
@@ -10,19 +11,16 @@ static int initfn(void)
 {
 	int ret;
 
-	st_cxt = kmalloc(sizeof(struct syscall_throttle_context), GFP_KERNEL);
-	// #TODO: check return value
-
 	atomic_set(&st_cxt->hack_ready_on_cpu, 0);
 	atomic_set(&st_cxt->throttle_running, false);
+
 	atomic_set(&st_cxt->crit_req, 0);
 	atomic_set(&st_cxt->crit_sleep, 0);
 	atomic_set(&st_cxt->crit_avail, __ST_BASE_CRIT_LIMIT);
 	atomic_set(&st_cxt->crit_limit, __ST_BASE_CRIT_LIMIT);
+
 	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
 	mutex_init(&st_cxt->operation_synchronizer);
-
-	pr_info("%s: module correctly loaded\n", __ST_MODNAME);
 
 	ret = load_hack_search();
 	if (ret != 0)
@@ -51,6 +49,8 @@ static int initfn(void)
 	ret = load_metrics_driver();
 	if (ret != 0)
 		return ret;
+
+	pr_info("%s: module correctly loaded\n", __ST_MODNAME);
 
 	return 0;
 }
@@ -96,7 +96,6 @@ static void exitfn(void)
 	/* Unload the metrics */
 	unload_metrics();
 
-	kfree(st_cxt);
 	pr_info("%s: module correctly unloaded\n", __ST_MODNAME);
 }
 

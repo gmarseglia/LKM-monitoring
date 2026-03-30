@@ -121,6 +121,13 @@ static int nr_show(struct seq_file *m, void *v)
 
 static int sleep_metrics_show(struct seq_file *m, void *v)
 {
+	unsigned long avg_sleep, max_sleep;
+
+	spin_lock(&st_slp_met->lock);
+	avg_sleep = st_slp_met->avg_sleep;
+	max_sleep = st_slp_met->max_sleep;
+	spin_unlock(&st_slp_met->lock);
+
 	seq_printf(m, "avg_sleep=%ld\nmax_sleep=%ld\n",
 		   st_slp_met->avg_sleep / __ST_METRICS_SCALING_FACTOR,
 		   st_slp_met->max_sleep / __ST_METRICS_SCALING_FACTOR);
@@ -136,9 +143,8 @@ static int delay_metrics_show(struct seq_file *m, void *v)
 	struct syscall_throttle_delay_metrics max_local_dm;
 	struct syscall_throttle_delay_metrics *cpu_dm;
 
-	max_global_dm.max_delay_ms = -1;
-
 	/* Find the global max from the local max */
+	max_global_dm.max_delay_ms = -1;
 	for_each_possible_cpu(cpu)
 	{
 		do {

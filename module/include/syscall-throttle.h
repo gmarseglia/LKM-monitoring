@@ -53,6 +53,7 @@
 #define __ST_METRICS_SCALING_FACTOR 100000
 
 DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
+DECLARE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 
 struct string_entry {
 	char string_key[__ST_MAX_STR_LEN];
@@ -114,7 +115,7 @@ struct syscall_throttle_delay_metrics {
 
 extern struct syscall_throttle_context *st_cxt;
 extern struct syscall_throttle_sleep_metrics *st_slp_met;
-extern struct syscall_throttle_delay_metrics st_dly_met;
+
 
 int load_throttle(void);
 int load_hack_search(void);

@@ -1,48 +1,36 @@
 #include "syscall-throttle.h"
 
-struct syscall_throttle_sleep_metrics *st_slp_met = NULL;
+struct syscall_throttle_sleep_metrics __st_slp_met;
+struct syscall_throttle_sleep_metrics *st_slp_met = &__st_slp_met;
 DEFINE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 
 void update_sleep_metrics(void)
 {
+	int curr_sleep;
+
 	if (atomic_read(&st_cxt->throttle_running) == false)
 		return;
 
-	spin_lock_bh(&st_slp_met->lock); // #TODO: investigate more on _bh
-
-	int curr_sleep =
+	curr_sleep =
 		atomic_read(&st_cxt->crit_sleep) * __ST_METRICS_SCALING_FACTOR;
 
+	spin_lock_bh(&st_slp_met->lock); // #TODO: investigate more on _bh
+
+	/* Update max sleep */
 	st_slp_met->max_sleep = MAX(curr_sleep, st_slp_met->max_sleep);
 
-	unsigned long total_sleep =
-		st_slp_met->avg_sleep * st_slp_met->units_passed;
-
+	/* Update mean sleep with online method */
 	st_slp_met->units_passed++;
 	st_slp_met->avg_sleep =
-		(total_sleep + curr_sleep) / st_slp_met->units_passed;
-
-	pr_info("%s: max_sleep=%lu, avg_sleep=%lu, units_passed=%lu\n",
-		__ST_MODNAME,
-		st_slp_met->max_sleep / __ST_METRICS_SCALING_FACTOR,
-		st_slp_met->avg_sleep / __ST_METRICS_SCALING_FACTOR,
-		st_slp_met->units_passed);
+		(st_slp_met->avg_sleep * (st_slp_met->units_passed - 1) +
+		 curr_sleep) /
+		st_slp_met->units_passed;
 
 	spin_unlock_bh(&st_slp_met->lock);
 }
 
 int load_metrics(void)
 {
-	/* Allocate the struct for sleep metrics */
-	st_slp_met = kzalloc(sizeof(struct syscall_throttle_sleep_metrics),
-			     GFP_KERNEL);
-	if (!st_slp_met) {
-		pr_err("%s: failed to allocate memory for "
-		       "syscall_throttle_metrics",
-		       __ST_MODNAME);
-		return -ENOMEM;
-	}
-
 	/* Initialize the lock */
 	spin_lock_init(&st_slp_met->lock);
 
@@ -58,4 +46,4 @@ int load_metrics(void)
 	return 0;
 }
 
-void unload_metrics(void) { kfree(st_slp_met); }
+void unload_metrics(void) {}

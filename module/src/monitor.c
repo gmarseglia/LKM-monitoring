@@ -114,7 +114,7 @@ int unregister_critical_num(unsigned int nr)
 /*
   Checks if the syscall request is critical
 */
-bool is_critical(struct syscall_throttle_query_result *st_qr)
+inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 {
 	/* Check syscall */
 	if (!test_bit(st_qr->nr, st_cxt->sys_numbers_registry)) {

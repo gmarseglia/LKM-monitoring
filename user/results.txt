@@ -10,3 +10,5 @@ total=55.541 sec, mean=555.411 msec, stddev=42.511 msec
 Yes module, active, yer nr, no euid/name:
 total=63.539 sec, mean=635.385 msec, stddev=39.388 msec
 
+Yes module, active, yer nr, no euid/name [INLINE]:
+total=55.285 sec, mean=552.850 msec, stddev=45.310 msec

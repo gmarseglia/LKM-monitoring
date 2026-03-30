@@ -45,6 +45,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	/* If syscall request is critical */
 	struct syscall_throttle_query_result st_qr;
 	st_qr.nr = sys_call_number;
+	st_qr.is_critical = false;
 	if (unlikely(is_critical(&st_qr))) {
 		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);

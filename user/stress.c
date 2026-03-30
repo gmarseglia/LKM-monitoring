@@ -51,7 +51,7 @@ int main(int a, char **b) {
     elapsed_vec[i] = elapsed_ms;
 
     printf("writes=%d, iteration=%03d/%03d, elapsed=%0.3f msec.\n", WRITE_ITER,
-           i, ITER_NUM, elapsed_ms);
+           (i+1), ITER_NUM, elapsed_ms);
   }
 
   close(fd_null);

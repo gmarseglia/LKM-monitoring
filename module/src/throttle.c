@@ -25,7 +25,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 {
 
 	/* Check if the module is still running */
-	if (atomic_read(&st_cxt->throttle_running) == false)
+	if (atomic_read(&st_cxt->throttle_running) == 0)
 		return 0;
 
 	struct pt_regs *the_regs = (struct pt_regs *)regs->di;
@@ -85,7 +85,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
 					atomic_read(
 						&st_cxt->throttle_running) ==
-						false);
+						0);
 
 			/* Disable premption */
 			preempt_disable();

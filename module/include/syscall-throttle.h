@@ -66,7 +66,7 @@ struct syscall_throttle_context {
 	atomic_t hack_ready_on_cpu;
 
 	/* For monitoring */
-	unsigned long *sys_numbers_registry;
+	unsigned long *nr_registry;
 	struct rhashtable euid_registry;
 	struct rhashtable prog_names_registry;
 
@@ -84,7 +84,7 @@ struct syscall_throttle_context {
 
 	/* For ioctl driver */
 	int Major;
-	struct mutex operation_synchronizer;
+	struct mutex ioctl_mutex;
 	struct class *my_class;
 	struct device *my_device;
 
@@ -115,7 +115,6 @@ struct syscall_throttle_delay_metrics {
 
 extern struct syscall_throttle_context *st_cxt;
 extern struct syscall_throttle_sleep_metrics *st_slp_met;
-
 
 int load_throttle(void);
 int load_hack_search(void);

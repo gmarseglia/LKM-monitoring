@@ -12,7 +12,7 @@ static int initfn(void)
 	int ret;
 
 	atomic_set(&st_cxt->hack_ready_on_cpu, 0);
-	atomic_set(&st_cxt->throttle_running, false);
+	atomic_set(&st_cxt->throttle_running, 0);
 
 	atomic_set(&st_cxt->crit_req, 0);
 	atomic_set(&st_cxt->crit_sleep, 0);
@@ -20,7 +20,7 @@ static int initfn(void)
 	atomic_set(&st_cxt->crit_limit, __ST_BASE_CRIT_LIMIT);
 
 	init_waitqueue_head(&st_cxt->critical_sleeping_wq);
-	mutex_init(&st_cxt->operation_synchronizer);
+	mutex_init(&st_cxt->ioctl_mutex);
 
 	ret = load_hack_search();
 	if (ret != 0)
@@ -68,6 +68,7 @@ static void exitfn(void)
 
 	/* Unload the driver */
 	unload_driver();
+	unload_metrics_driver();
 
 	/* Delete the timer */
 	unload_timer();
@@ -81,17 +82,17 @@ static void exitfn(void)
 	/* Wait for all thread to exit the  */
 	while (atomic_read(&st_cxt->crit_sleep) != 0)
 		msleep(20);
-	pr_info("%s: all sleeping thread have completed\n", __ST_MODNAME);
+	
+	__ST_LOG_FINE pr_info("%s: all sleeping thread have completed\n",
+			      __ST_MODNAME);
 
 	/* Unregister the kprobe */
 	unregister_kprobe(&st_cxt->probe_throttle);
-	pr_info("%s: kprobe at %p unregistered\n", __ST_MODNAME,
-		st_cxt->probe_throttle.addr);
+	__ST_LOG_FINE pr_info("%s: kprobe at %p unregistered\n", __ST_MODNAME,
+			      st_cxt->probe_throttle.addr);
 
 	/* Unload the monitor */
 	unload_monitor();
-
-	unload_metrics_driver();
 
 	/* Unload the metrics */
 	unload_metrics();

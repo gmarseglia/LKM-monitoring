@@ -112,7 +112,7 @@ static int rhash_seq_release(struct inode *inode, struct file *file)
 static int nr_show(struct seq_file *m, void *v)
 {
 	for (int nr = 0; nr < __ST_MAX_NR; nr++) {
-		if (test_bit(nr, st_cxt->sys_numbers_registry) == true) {
+		if (test_bit(nr, st_cxt->nr_registry) == true) {
 			seq_printf(m, "nr:%d\n", nr);
 		}
 	}

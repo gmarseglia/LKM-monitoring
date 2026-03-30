@@ -8,7 +8,7 @@ void update_sleep_metrics(void)
 {
 	int curr_sleep;
 
-	if (atomic_read(&st_cxt->throttle_running) == false)
+	if (atomic_read(&st_cxt->throttle_running) == 0)
 		return;
 
 	curr_sleep =

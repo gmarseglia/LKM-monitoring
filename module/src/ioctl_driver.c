@@ -17,33 +17,32 @@ static struct file_operations fops = {.owner = THIS_MODULE,
 
 static int dev_open(struct inode *inode, struct file *file)
 {
-	pr_info("%s: dev_open request", __ST_MODNAME);
+	__ST_LOG_FINEST pr_info("%s: dev_open request", __ST_MODNAME);
 	return 0;
 }
 
 static int dev_release(struct inode *inode, struct file *file)
 {
-	pr_info("%s: dev_release request", __ST_MODNAME);
+	__ST_LOG_FINEST pr_info("%s: dev_release request", __ST_MODNAME);
 	return 0;
 }
 
-static int convert_to_string(unsigned long param, char *str_param)
+static int string_from_user(unsigned long param, char *str_param)
 {
 	int str_len;
 	str_len = strncpy_from_user(str_param, (char *)param, MAX_STR_LEN - 1);
 	str_param[str_len] = '\0';
-
 	return str_len;
 }
 
 static long
 dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 {
-	pr_info("%s: ioctl invoked with command=%d and param=%lu", __ST_MODNAME,
-		_IOC_NR(command), param);
-
 	char str_param[64];
 	int int_param;
+
+	__ST_LOG_FINE pr_info("%s: ioctl invoked with command=%d and param=%lu",
+			      __ST_MODNAME, _IOC_NR(command), param);
 
 	/* Convert param according to command */
 	switch (command) {
@@ -55,20 +54,20 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_UNREGISTER_NR:
 	case IOCTL_SET_LIMIT:
 		int_param = (int)param;
-		pr_info("%s: ioctl executing with int_param=%d", __ST_MODNAME,
-			int_param);
+		__ST_LOG_FINEST pr_info("%s: ioctl executing with int_param=%d",
+					__ST_MODNAME, int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
 	case IOCTL_UNREGISTER_EUID:
 	case IOCTL_REGISTER_PROG_NAME:
 	case IOCTL_UNREGISTER_PROG_NAME:
-		if (convert_to_string(param, str_param) < 0) {
+		if (string_from_user(param, str_param) < 0) {
 			pr_warn("%s: Unable to convert param to string\n",
 				__ST_MODNAME);
 			return -EINVAL;
 		}
-		pr_info("%s: ioctl executing with str_param=%s", __ST_MODNAME,
-			str_param);
+		__ST_LOG_FINE pr_info("%s: ioctl executing with str_param=%s",
+				      __ST_MODNAME, str_param);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME,
@@ -77,13 +76,14 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	}
 
 	/* Execute command */
+	mutex_lock(&st_cxt->ioctl_mutex);
 	int ret = 0;
 	switch (command) {
 	case IOCTL_START_THROTTLE:
-		atomic_set(&st_cxt->throttle_running, true);
+		atomic_set(&st_cxt->throttle_running, 1);
 		break;
 	case IOCTL_STOP_THROTTLE:
-		atomic_set(&st_cxt->throttle_running, false);
+		atomic_set(&st_cxt->throttle_running, 0);
 		update_limit_and_wake();
 		break;
 	case IOCTL_REGISTER_NR:
@@ -116,6 +116,7 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 			command);
 		ret = -ENOTTY;
 	}
+	mutex_unlock(&st_cxt->ioctl_mutex);
 
 	return ret;
 }

@@ -100,14 +100,14 @@ static bool is_registered_str(char *search_str, struct rhashtable *ht)
 int register_critical_num(unsigned int nr)
 {
 	// #TODO: add limit check?
-	set_bit(nr, st_cxt->sys_numbers_registry);
+	set_bit(nr, st_cxt->nr_registry);
 	return 0;
 }
 
 int unregister_critical_num(unsigned int nr)
 {
 	// #TODO: add limit check?
-	clear_bit(nr, st_cxt->sys_numbers_registry);
+	clear_bit(nr, st_cxt->nr_registry);
 	return 0;
 }
 
@@ -117,7 +117,7 @@ int unregister_critical_num(unsigned int nr)
 inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 {
 	/* Check syscall */
-	if (!test_bit(st_qr->nr, st_cxt->sys_numbers_registry)) {
+	if (!test_bit(st_qr->nr, st_cxt->nr_registry)) {
 		st_qr->is_critical = false;
 		return false;
 	}
@@ -153,7 +153,7 @@ int load_monitor(void)
 {
 	int ret;
 
-	st_cxt->sys_numbers_registry = bitmap_zalloc(__ST_MAX_NR, GFP_KERNEL);
+	st_cxt->nr_registry = bitmap_zalloc(__ST_MAX_NR, GFP_KERNEL);
 
 	ret = rhashtable_init(&st_cxt->euid_registry, &registry_params);
 	if (ret < 0) {
@@ -174,7 +174,7 @@ int load_monitor(void)
 
 void unload_monitor(void)
 {
-	bitmap_free(st_cxt->sys_numbers_registry);
+	bitmap_free(st_cxt->nr_registry);
 
 	rhashtable_free_and_destroy(&st_cxt->euid_registry, my_registry_free_fn,
 				    NULL);
@@ -182,5 +182,6 @@ void unload_monitor(void)
 	rhashtable_free_and_destroy(&st_cxt->prog_names_registry,
 				    my_registry_free_fn, NULL);
 
-	rcu_barrier();
+	rcu_barrier(); // #TODO: investigate if rcu_barrier() is needed in other
+		       // places
 }

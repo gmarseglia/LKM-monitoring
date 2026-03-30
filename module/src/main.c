@@ -1,7 +1,7 @@
 #include "syscall-throttle.h"
 
 DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
-struct syscall_throttle_context __st_cxt;
+static struct syscall_throttle_context __st_cxt;
 struct syscall_throttle_context *st_cxt = &__st_cxt;
 
 /*
@@ -82,7 +82,7 @@ static void exitfn(void)
 	/* Wait for all thread to exit the  */
 	while (atomic_read(&st_cxt->crit_sleep) != 0)
 		msleep(20);
-	
+
 	__ST_LOG_FINE pr_info("%s: all sleeping thread have completed\n",
 			      __ST_MODNAME);
 

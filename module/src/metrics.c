@@ -1,6 +1,6 @@
 #include "syscall-throttle.h"
 
-struct syscall_throttle_sleep_metrics __st_slp_met;
+static struct syscall_throttle_sleep_metrics __st_slp_met;
 struct syscall_throttle_sleep_metrics *st_slp_met = &__st_slp_met;
 DEFINE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 

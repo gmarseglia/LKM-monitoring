@@ -36,11 +36,11 @@ int load_metrics(void)
 
 	/* Allocate and initialize the structs for delay metrics */
 	int cpu;
-	struct syscall_throttle_delay_metrics dm;
+	struct syscall_throttle_delay_metrics *dm;
 	for_each_possible_cpu(cpu)
 	{
-		dm = per_cpu(st_dly_met, cpu);
-		seqcount_init(&dm.count);
+		dm = per_cpu_ptr(&st_dly_met, cpu);
+		seqcount_init(&dm->count);
 	}
 
 	return 0;

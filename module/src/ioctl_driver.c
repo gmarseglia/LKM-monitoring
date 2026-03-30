@@ -1,8 +1,6 @@
 #include "syscall-ioctl.h"
 #include "syscall-throttle.h"
 
-#define MAX_STR_LEN 64
-
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static long dev_ioctl(struct file *, unsigned int, unsigned long);
@@ -30,7 +28,10 @@ static int dev_release(struct inode *inode, struct file *file)
 static int string_from_user(unsigned long param, char *str_param)
 {
 	int str_len;
-	str_len = strncpy_from_user(str_param, (char *)param, MAX_STR_LEN - 1);
+	str_len = strncpy_from_user(str_param, (char *)param,
+				    __ST_MAX_STR_LEN - 1);
+	if (str_len < 0)
+		return str_len;
 	str_param[str_len] = '\0';
 	return str_len;
 }
@@ -38,7 +39,7 @@ static int string_from_user(unsigned long param, char *str_param)
 static long
 dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 {
-	char str_param[64];
+	char str_param[__ST_MAX_STR_LEN];
 	int int_param;
 
 	__ST_LOG_FINE pr_info("%s: ioctl invoked with command=%d and param=%lu",
@@ -76,7 +77,6 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	}
 
 	/* Execute command */
-	mutex_lock(&st_cxt->ioctl_mutex);
 	int ret = 0;
 	switch (command) {
 	case IOCTL_START_THROTTLE:
@@ -93,19 +93,27 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 		ret = unregister_critical_num(int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
+		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = register_critical_str(str_param, &st_cxt->euid_registry);
+		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_UNREGISTER_EUID:
+		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = unregister_critical_str(str_param,
 					      &st_cxt->euid_registry);
+		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_REGISTER_PROG_NAME:
+		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = register_critical_str(str_param,
 					    &st_cxt->prog_names_registry);
+		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_UNREGISTER_PROG_NAME:
+		mutex_lock(&st_cxt->ioctl_mutex);
 		ret = unregister_critical_str(str_param,
 					      &st_cxt->prog_names_registry);
+		mutex_unlock(&st_cxt->ioctl_mutex);
 		break;
 	case IOCTL_SET_LIMIT:
 		atomic_set(&st_cxt->crit_limit, int_param);
@@ -116,14 +124,16 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 			command);
 		ret = -ENOTTY;
 	}
-	mutex_unlock(&st_cxt->ioctl_mutex);
 
 	return ret;
 }
 
 int load_driver(void)
 {
-	int Major = register_chrdev(0, __ST_MODNAME, &fops);
+	int Major;
+	int ret;
+
+	Major = register_chrdev(0, __ST_MODNAME, &fops);
 	if (Major < 0) {
 		pr_err("%s: register_chrdev returned %d", __ST_MODNAME, Major);
 		return Major;
@@ -132,7 +142,7 @@ int load_driver(void)
 		Major);
 	st_cxt->Major = Major;
 
-	int ret = create_device();
+	ret = create_device();
 
 	return ret;
 }

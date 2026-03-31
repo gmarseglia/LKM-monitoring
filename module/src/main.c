@@ -1,6 +1,5 @@
 #include "syscall-throttle.h"
 
-DEFINE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 static struct syscall_throttle_context __st_cxt;
 struct syscall_throttle_context *st_cxt = &__st_cxt;
 

@@ -53,7 +53,6 @@
 #define __ST_MAX_STR_LEN 64
 #define __ST_METRICS_SCALING_FACTOR 100000
 
-DECLARE_PER_CPU(struct kprobe **, saved_kprobe_context_p);
 DECLARE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 
 struct string_entry {
@@ -65,6 +64,7 @@ struct string_entry {
 struct syscall_throttle_context {
 	/* For interruptible kprobes */
 	atomic_t hack_ready_on_cpu;
+	unsigned long saved_kprobe_ctx_offset;
 
 	/* For monitoring */
 	struct mutex registry_mutex;

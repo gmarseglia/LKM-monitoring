@@ -18,28 +18,27 @@ noinline void dummy_run(void *arg)
 */
 static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 {
-
 	__ST_LOG_FINE pr_info("%s: pre_handler_search running on CPU %d",
 			      __ST_MODNAME, smp_processor_id());
 
 	/* Brute force search for the position of the kprobe context */
-	unsigned long temp_ptr = (unsigned long)&saved_kprobe_context_p;
 	struct kprobe *temp;
-	while (copy_from_kernel_nofault(
-		       &temp, this_cpu_ptr((struct kprobe **)temp_ptr),
-		       sizeof(struct kprobe *)) != -EFAULT) {
+	unsigned long temp_offset = 0;
+	while (copy_from_kernel_nofault(&temp,
+					this_cpu_ptr((void *)temp_offset),
+					sizeof(struct kprobe *)) != -EFAULT) {
 		/* Check if *temp_ptr points at the variable representing the
 		 * kprobe context  */
 		if (temp == p) {
-			this_cpu_write(saved_kprobe_context_p,
-				       (struct kprobe **)temp_ptr);
+			st_cxt->saved_kprobe_ctx_offset = temp_offset;
 			atomic_inc(&st_cxt->hack_ready_on_cpu);
 			return 0;
 		}
-		temp_ptr--;
+		temp_offset++;
 	}
 
 	pr_err("%s: NOT found on CPU %d", __ST_MODNAME, smp_processor_id());
+
 	return 0;
 }
 
@@ -55,9 +54,7 @@ int load_hack_search(void)
 	int ret;
 
 	/* Initialize and register the search probe */
-	// struct kprobe search_probe;
-	struct kprobe search_probe = {0};
-	// search_probe.symbol_name = "dummy_run";
+	struct kprobe search_probe;
 	search_probe.addr = (kprobe_opcode_t *)dummy_run;
 	search_probe.pre_handler = pre_handler_search;
 
@@ -68,15 +65,12 @@ int load_hack_search(void)
 		return ret;
 	}
 
-	/* Execute "dummy_run" on each CPU to trigger the search probe
-	 * pre-handler */
-	// on_each_cpu(dummy_run, NULL, 1);
+	/* Execute "dummy_run" to trigger the search probe pre-handler */
 	dummy_run(NULL);
 
 	/* Unregister the search probe */
 	unregister_kprobe(&search_probe);
 
-	// if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
 	if (atomic_read(&st_cxt->hack_ready_on_cpu) != 1) {
 		pr_err("%s: load_hack_search did not complete on every CPU.",
 		       __ST_MODNAME);

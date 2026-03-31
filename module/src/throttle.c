@@ -29,8 +29,9 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 		return 0;
 
 	struct pt_regs *the_regs = (struct pt_regs *)regs->di;
-	unsigned long sys_call_number =
-		the_regs->orig_ax; // #TODO: why orig_ax works?
+	// #TODO: why orig_ax works?
+	unsigned long sys_call_number = the_regs->orig_ax;
+	struct kprobe **kprobe_context_p;
 
 	/* Sanity check for preemption and interrupts */
 	if (preempt_count() == 0) {
@@ -68,9 +69,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 			/* Write NULL in the kprobe context in the
 			 * per-CPU memory */
-			struct kprobe **kprobe_context_p =
-				this_cpu_read(saved_kprobe_context_p);
-			this_cpu_write(*kprobe_context_p, NULL);
+			kprobe_context_p = this_cpu_ptr(
+				(void *)st_cxt->saved_kprobe_ctx_offset);
+
+			// this_cpu_write(kprobe_context_p, NULL);
+			*kprobe_context_p = NULL;
 
 			/* Enable preemption */
 			atomic_inc(&st_cxt->crit_sleep);
@@ -91,7 +94,8 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			atomic_dec(&st_cxt->crit_sleep);
 
 			/* Restore kprobe context */
-			this_cpu_write(*kprobe_context_p, p);
+			// this_cpu_write(*kprobe_context_p, p);
+			*kprobe_context_p = p;
 
 			delay_ms = ktime_ms_delta(ktime_get(), start);
 

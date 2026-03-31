@@ -202,4 +202,13 @@ int load_metrics_driver(void)
 	return 0;
 }
 
-void unload_metrics_driver(void) { proc_remove(st_cxt->proc_dir); }
+void unload_metrics_driver(void)
+{
+	remove_proc_entry("program_names", st_cxt->proc_dir);
+	remove_proc_entry("euid", st_cxt->proc_dir);
+	remove_proc_entry("nr", st_cxt->proc_dir);
+	remove_proc_entry("sleep_metrics", st_cxt->proc_dir);
+	remove_proc_entry("delay_metrics", st_cxt->proc_dir);
+	remove_proc_entry("config", st_cxt->proc_dir);
+	remove_proc_entry(__ST_MODNAME, NULL);
+}

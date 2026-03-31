@@ -28,9 +28,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	if (atomic_read(&st_cxt->throttle_running) == 0)
 		return 0;
 
-	struct pt_regs *the_regs = (struct pt_regs *)regs->di;
-	// #TODO: why orig_ax works?
-	unsigned long sys_call_number = the_regs->orig_ax;
+	unsigned long nr = syscall_get_nr(current, regs);
 	struct kprobe **kprobe_context_p;
 
 	/* Sanity check for preemption and interrupts */
@@ -45,14 +43,14 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 	/* If syscall request is critical */
 	struct syscall_throttle_query_result st_qr;
-	st_qr.nr = sys_call_number;
+	st_qr.nr = nr;
 	if (unlikely(is_critical(&st_qr))) {
 		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);
 
 		__ST_LOG_FINE pr_info(
 			"%s: probe #%05d hit, for pid %d, with ax=%lu",
-			__ST_MODNAME, curr_req, current->pid, sys_call_number);
+			__ST_MODNAME, curr_req, current->pid, nr);
 
 		/* If curr_avail < 0 ==> syscall has to be delayed */
 		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {

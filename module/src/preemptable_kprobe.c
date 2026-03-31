@@ -1,13 +1,14 @@
 #include "syscall-throttle.h"
 
+noinline void dummy_run(void *arg);
+
 /*
   Dummy function to be run on each CPU, that allow the pre_handler_search to be
   run inside a kprobe
 */
-static void dummy_run(void *arg)
+noinline void dummy_run(void *arg)
 {
-	__ST_LOG_FINEST pr_info("%s: dummy running on CPU %d", __ST_MODNAME,
-				smp_processor_id());
+	asm volatile(""); // force GCC to call the block
 	return;
 }
 
@@ -22,14 +23,16 @@ static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 			      __ST_MODNAME, smp_processor_id());
 
 	/* Brute force search for the position of the kprobe context */
-	struct kprobe **temp_ptr = (struct kprobe **)&saved_kprobe_context_p;
+	unsigned long temp_ptr = (unsigned long)&saved_kprobe_context_p;
 	struct kprobe *temp;
-	while (copy_from_kernel_nofault(&temp, this_cpu_ptr(temp_ptr),
-					sizeof(struct kprobe *)) != -EFAULT) {
-		/* Check if *temp_ptr points at the variable representing the kprobe
-		 * context  */
+	while (copy_from_kernel_nofault(
+		       &temp, this_cpu_ptr((struct kprobe **)temp_ptr),
+		       sizeof(struct kprobe *)) != -EFAULT) {
+		/* Check if *temp_ptr points at the variable representing the
+		 * kprobe context  */
 		if (temp == p) {
-			this_cpu_write(saved_kprobe_context_p, temp_ptr);
+			this_cpu_write(saved_kprobe_context_p,
+				       (struct kprobe **)temp_ptr);
 			atomic_inc(&st_cxt->hack_ready_on_cpu);
 			return 0;
 		}
@@ -52,8 +55,10 @@ int load_hack_search(void)
 	int ret;
 
 	/* Initialize and register the search probe */
-	struct kprobe search_probe;
-	search_probe.symbol_name = "dummy_run";
+	// struct kprobe search_probe;
+	struct kprobe search_probe = {0};
+	// search_probe.symbol_name = "dummy_run";
+	search_probe.addr = (kprobe_opcode_t *)dummy_run;
 	search_probe.pre_handler = pre_handler_search;
 
 	ret = register_kprobe(&search_probe);
@@ -65,12 +70,14 @@ int load_hack_search(void)
 
 	/* Execute "dummy_run" on each CPU to trigger the search probe
 	 * pre-handler */
-	on_each_cpu(dummy_run, NULL, 1);
+	// on_each_cpu(dummy_run, NULL, 1);
+	dummy_run(NULL);
 
 	/* Unregister the search probe */
 	unregister_kprobe(&search_probe);
 
-	if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
+	// if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
+	if (atomic_read(&st_cxt->hack_ready_on_cpu) != 1) {
 		pr_err("%s: load_hack_search did not complete on every CPU.",
 		       __ST_MODNAME);
 		return -1;

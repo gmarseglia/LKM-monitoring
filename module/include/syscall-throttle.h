@@ -6,6 +6,7 @@
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
 #include <linux/compiler.h>
+#include <linux/compiler_attributes.h>
 #include <linux/cred.h>
 #include <linux/delay.h>
 #include <linux/device.h>

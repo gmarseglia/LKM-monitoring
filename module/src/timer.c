@@ -32,7 +32,7 @@ int load_timer(void)
 /* Un load the timer */
 void unload_timer(void)
 {
-	timer_delete_sync(&st_cxt->periodic_timer);
+	timer_shutdown_sync(&st_cxt->periodic_timer);
 
 	pr_info("%s: timer unregistered\n", __ST_MODNAME);
 }

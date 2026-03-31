@@ -22,23 +22,21 @@ static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 			      __ST_MODNAME, smp_processor_id());
 
 	/* Brute force search for the position of the kprobe context */
-	struct kprobe **temp = (struct kprobe **)&saved_kprobe_context_p;
-	while ((unsigned long)temp > 0) {
-		temp--;
-		/* Check if *temp points at the variable representing the kprobe
+	struct kprobe **temp_ptr = (struct kprobe **)&saved_kprobe_context_p;
+	struct kprobe *temp;
+	while (copy_from_kernel_nofault(&temp, this_cpu_ptr(temp_ptr),
+					sizeof(struct kprobe *)) != -EFAULT) {
+		/* Check if *temp_ptr points at the variable representing the kprobe
 		 * context  */
-		if ((struct kprobe *)this_cpu_read(*temp) == p) {
-			this_cpu_write(saved_kprobe_context_p, temp);
+		if (temp == p) {
+			this_cpu_write(saved_kprobe_context_p, temp_ptr);
 			atomic_inc(&st_cxt->hack_ready_on_cpu);
-			break;
+			return 0;
 		}
-	}
-	if ((unsigned long)temp <= 0) {
-		pr_err("%s: NOT found on CPU %d", __ST_MODNAME,
-		       smp_processor_id());
-		return 0;
+		temp_ptr--;
 	}
 
+	pr_err("%s: NOT found on CPU %d", __ST_MODNAME, smp_processor_id());
 	return 0;
 }
 
@@ -68,16 +66,17 @@ int load_hack_search(void)
 	/* Execute "dummy_run" on each CPU to trigger the search probe
 	 * pre-handler */
 	on_each_cpu(dummy_run, NULL, 1);
-	if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
-		pr_err("%s: load_hack_search did not complete on every CPU.",
-		       __ST_MODNAME);
-		return -1;
-	}
 
 	/* Unregister the search probe */
 	unregister_kprobe(&search_probe);
 
-	__ST_LOG pr_info("%s: load_hack_search completed.", __ST_MODNAME);
-
-	return 0;
+	if (atomic_read(&st_cxt->hack_ready_on_cpu) < num_online_cpus()) {
+		pr_err("%s: load_hack_search did not complete on every CPU.",
+		       __ST_MODNAME);
+		return -1;
+	} else {
+		__ST_LOG pr_info("%s: load_hack_search completed.",
+				 __ST_MODNAME);
+		return 0;
+	}
 }

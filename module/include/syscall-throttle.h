@@ -90,7 +90,7 @@ struct syscall_throttle_context {
 	struct device *my_device;
 
 	/* For procfs driver */
-	struct proc_dir_entry *my_proc_dir;
+	struct proc_dir_entry *proc_dir;
 };
 
 struct syscall_throttle_sleep_metrics {

@@ -1,5 +1,3 @@
-#include "linux/proc_fs.h"
-#include "linux/seq_file.h"
 #include "syscall-throttle.h"
 
 struct rhash_seq_state {
@@ -112,7 +110,7 @@ static int rhash_seq_release(struct inode *inode, struct file *file)
 static int nr_show(struct seq_file *m, void *v)
 {
 	for (int nr = 0; nr < __ST_MAX_NR; nr++) {
-		if (test_bit(nr, st_cxt->nr_registry) == true) {
+		if (test_bit(nr, st_cxt->nr_registry)) {
 			seq_printf(m, "nr:%d\n", nr);
 		}
 	}
@@ -129,8 +127,8 @@ static int sleep_metrics_show(struct seq_file *m, void *v)
 	spin_unlock(&st_slp_met->lock);
 
 	seq_printf(m, "avg_sleep=%ld\nmax_sleep=%ld\n",
-		   st_slp_met->avg_sleep / __ST_METRICS_SCALING_FACTOR,
-		   st_slp_met->max_sleep / __ST_METRICS_SCALING_FACTOR);
+		   avg_sleep / __ST_METRICS_SCALING_FACTOR,
+		   max_sleep / __ST_METRICS_SCALING_FACTOR);
 
 	return 0;
 }
@@ -180,37 +178,28 @@ static int config_show(struct seq_file *m, void *v)
 
 int load_metrics_driver(void)
 {
-	st_cxt->my_proc_dir = proc_mkdir(__ST_MODNAME, NULL);
-	if (!st_cxt->my_proc_dir)
+	st_cxt->proc_dir = proc_mkdir(__ST_MODNAME, NULL);
+	if (!st_cxt->proc_dir)
 		return -ENOMEM;
 
 	// #TODO: add return control
-	proc_create_data("program_names", 0444, st_cxt->my_proc_dir,
+	proc_create_data("program_names", 0444, st_cxt->proc_dir,
 			 &rhash_proc_ops, &st_cxt->prog_names_registry);
 
-	proc_create_data("euid", 0444, st_cxt->my_proc_dir, &rhash_proc_ops,
+	proc_create_data("euid", 0444, st_cxt->proc_dir, &rhash_proc_ops,
 			 &st_cxt->euid_registry);
 
-	proc_create_single("nr", 0444, st_cxt->my_proc_dir, nr_show);
+	proc_create_single("nr", 0444, st_cxt->proc_dir, nr_show);
 
-	proc_create_single("sleep_metrics", 0444, st_cxt->my_proc_dir,
+	proc_create_single("sleep_metrics", 0444, st_cxt->proc_dir,
 			   sleep_metrics_show);
 
-	proc_create_single("delay_metrics", 0444, st_cxt->my_proc_dir,
+	proc_create_single("delay_metrics", 0444, st_cxt->proc_dir,
 			   delay_metrics_show);
 
-	proc_create_single("config", 0444, st_cxt->my_proc_dir, config_show);
+	proc_create_single("config", 0444, st_cxt->proc_dir, config_show);
 
 	return 0;
 }
 
-void unload_metrics_driver(void)
-{
-	remove_proc_entry("program_names", st_cxt->my_proc_dir);
-	remove_proc_entry("euid", st_cxt->my_proc_dir);
-	remove_proc_entry("nr", st_cxt->my_proc_dir);
-	remove_proc_entry("sleep_metrics", st_cxt->my_proc_dir);
-	remove_proc_entry("delay_metrics", st_cxt->my_proc_dir);
-	remove_proc_entry("config", st_cxt->my_proc_dir);
-	remove_proc_entry(__ST_MODNAME, NULL);
-}
+void unload_metrics_driver(void) { proc_remove(st_cxt->proc_dir); }

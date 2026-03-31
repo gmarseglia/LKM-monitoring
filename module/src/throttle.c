@@ -25,7 +25,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 {
 
 	/* Check if the module is still running */
-	if (atomic_read(&st_cxt->throttle_running) == 0)
+	if (!__ST_IS_ON)
 		return 0;
 
 	int nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
@@ -83,9 +83,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			wait_event_interruptible(
 				st_cxt->critical_sleeping_wq,
 				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
-					atomic_read(
-						&st_cxt->throttle_running) ==
-						0);
+					!__ST_IS_ON);
 
 			/* Disable premption */
 			preempt_disable();

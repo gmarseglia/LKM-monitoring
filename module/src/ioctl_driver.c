@@ -80,10 +80,10 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	int ret = 0;
 	switch (command) {
 	case IOCTL_START_THROTTLE:
-		atomic_set(&st_cxt->throttle_running, 1);
+		set_bit(__ST_FLAG_ON, __ST_FLAGS);
 		break;
 	case IOCTL_STOP_THROTTLE:
-		atomic_set(&st_cxt->throttle_running, 0);
+		clear_bit(__ST_FLAG_ON, __ST_FLAGS);
 		update_limit_and_wake();
 		break;
 	case IOCTL_REGISTER_NR:

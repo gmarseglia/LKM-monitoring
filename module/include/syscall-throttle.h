@@ -53,6 +53,10 @@
 #define __ST_MAX_STR_LEN 64
 #define __ST_METRICS_SCALING_FACTOR 100000
 
+#define __ST_FLAG_ON 0
+#define __ST_FLAGS &st_cxt->flags
+#define __ST_IS_ON test_bit(__ST_FLAG_ON, __ST_FLAGS)
+
 DECLARE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 
 struct string_entry {
@@ -62,6 +66,9 @@ struct string_entry {
 };
 
 struct syscall_throttle_context {
+	/* General purpose */
+	unsigned long flags;
+
 	/* For interruptible kprobes */
 	atomic_t hack_ready_on_cpu;
 	unsigned long saved_kprobe_ctx_offset;
@@ -74,7 +81,6 @@ struct syscall_throttle_context {
 
 	/* For throttling */
 	struct kprobe probe_throttle;
-	atomic_t throttle_running;
 	atomic_t crit_limit;
 	atomic_t crit_req;
 	atomic_t crit_avail;

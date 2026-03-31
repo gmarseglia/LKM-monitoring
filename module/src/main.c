@@ -10,9 +10,9 @@ static int initfn(void)
 {
 	int ret;
 
+	clear_bit(__ST_FLAG_ON, __ST_FLAGS);  
+	
 	atomic_set(&st_cxt->hack_ready_on_cpu, 0);
-	atomic_set(&st_cxt->throttle_running, 0);
-
 	atomic_set(&st_cxt->crit_req, 0);
 	atomic_set(&st_cxt->crit_sleep, 0);
 	atomic_set(&st_cxt->crit_avail, __ST_BASE_CRIT_LIMIT);
@@ -63,7 +63,7 @@ static void exitfn(void)
 	  Set atomic variable to general indication of running 0 indicates that
 	  the module is starting tear down operations
 	*/
-	atomic_set(&st_cxt->throttle_running, 0);
+	clear_bit(__ST_FLAG_ON, __ST_FLAGS);
 
 	/* Unload the driver */
 	unload_driver();

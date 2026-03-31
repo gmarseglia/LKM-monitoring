@@ -170,8 +170,7 @@ static int delay_metrics_show(struct seq_file *m, void *v)
 
 static int config_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "throttle_running=%d\nlimit=%d\n",
-		   atomic_read(&st_cxt->throttle_running),
+	seq_printf(m, "throttle_running=%d\nlimit=%d\n", __ST_IS_ON ? 1 : 0,
 		   atomic_read(&st_cxt->crit_limit));
 	return 0;
 }

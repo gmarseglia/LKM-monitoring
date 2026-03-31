@@ -139,6 +139,17 @@ inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 		return false;
 	}
 
+	/* Get program name */
+	strscpy(st_qr->name, current->comm, __ST_MAX_STR_LEN);
+	/* Check program name */
+	if (!st_qr->is_critical) {
+		if (is_registered_str(st_qr->name,
+				      &st_cxt->prog_names_registry)) {
+			st_qr->is_critical = true;
+			st_qr->type = "NAME";
+		}
+	}
+
 	/* Get eUID */
 	kuid_t current_kuid = current_euid();
 	uid_t euid_val = from_kuid(&init_user_ns, current_kuid);
@@ -152,16 +163,6 @@ inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 		}
 	}
 
-	/* Get program name */
-	snprintf(st_qr->name, __ST_MAX_STR_LEN, "%s", current->comm);
-	/* Check program name */
-	if (!st_qr->is_critical) {
-		if (is_registered_str(st_qr->name,
-				      &st_cxt->prog_names_registry)) {
-			st_qr->is_critical = true;
-			st_qr->type = "NAME";
-		}
-	}
 
 	return st_qr->is_critical;
 }

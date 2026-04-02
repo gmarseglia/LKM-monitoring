@@ -15,13 +15,13 @@ static struct file_operations fops = {.owner = THIS_MODULE,
 
 static int dev_open(struct inode *inode, struct file *file)
 {
-	__ST_LOG_FINEST pr_info("%s: dev_open request", __ST_MODNAME);
+	pr_debug("%s: dev_open request", __ST_MODNAME);
 	return 0;
 }
 
 static int dev_release(struct inode *inode, struct file *file)
 {
-	__ST_LOG_FINEST pr_info("%s: dev_release request", __ST_MODNAME);
+	pr_debug("%s: dev_release request", __ST_MODNAME);
 	return 0;
 }
 
@@ -42,8 +42,8 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	char str_param[__ST_MAX_STR_LEN];
 	int int_param;
 
-	__ST_LOG_FINE pr_info("%s: ioctl invoked with command=%d and param=%lu",
-			      __ST_MODNAME, _IOC_NR(command), param);
+	pr_debug("%s: ioctl invoked with command=%d and param=%lu",
+		 __ST_MODNAME, _IOC_NR(command), param);
 
 	/* Convert param according to command */
 	switch (command) {
@@ -55,8 +55,8 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 	case IOCTL_UNREGISTER_NR:
 	case IOCTL_SET_LIMIT:
 		int_param = (int)param;
-		__ST_LOG_FINEST pr_info("%s: ioctl executing with int_param=%d",
-					__ST_MODNAME, int_param);
+		pr_debug("%s: ioctl executing with int_param=%d", __ST_MODNAME,
+			 int_param);
 		break;
 	case IOCTL_REGISTER_EUID:
 	case IOCTL_UNREGISTER_EUID:
@@ -67,8 +67,8 @@ dev_ioctl(struct file *filp, unsigned int command, unsigned long param)
 				__ST_MODNAME);
 			return -EINVAL;
 		}
-		__ST_LOG_FINE pr_info("%s: ioctl executing with str_param=%s",
-				      __ST_MODNAME, str_param);
+		pr_debug("%s: ioctl executing with str_param=%s", __ST_MODNAME,
+			 str_param);
 		break;
 	default:
 		pr_warn("%s: Unknown ioctl command: %u\n", __ST_MODNAME,

@@ -18,8 +18,8 @@ noinline void dummy_run(void *arg)
 */
 static int __kprobes pre_handler_search(struct kprobe *p, struct pt_regs *regs)
 {
-	__ST_LOG_FINE pr_info("%s: pre_handler_search running on CPU %d",
-			      __ST_MODNAME, smp_processor_id());
+	pr_debug("%s: pre_handler_search running on CPU %d", __ST_MODNAME,
+		 smp_processor_id());
 
 	/* Brute force search for the position of the kprobe context */
 	struct kprobe *temp;
@@ -76,8 +76,7 @@ int load_hack_search(void)
 		       __ST_MODNAME);
 		return -1;
 	} else {
-		__ST_LOG pr_info("%s: load_hack_search completed.",
-				 __ST_MODNAME);
+		pr_notice("%s: load_hack_search completed.", __ST_MODNAME);
 		return 0;
 	}
 }

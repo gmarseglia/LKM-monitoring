@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #define WRITE_ITER 1000 * 1000
-#define ITER_NUM 100
+#define ITER_NUM 50
 
 int main(int a, char **b) {
 

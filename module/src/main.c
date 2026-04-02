@@ -82,12 +82,12 @@ static void exitfn(void)
 	while (atomic_read(&st_cxt->crit_sleep) != 0)
 		msleep(20);
 
-	__ST_LOG_FINE pr_info("%s: all sleeping thread have completed\n",
+	pr_info("%s: all sleeping thread have completed\n",
 			      __ST_MODNAME);
 
 	/* Unregister the kprobe */
 	unregister_kprobe(&st_cxt->probe_throttle);
-	__ST_LOG_FINE pr_info("%s: kprobe at %p unregistered\n", __ST_MODNAME,
+	pr_info("%s: kprobe at %p unregistered\n", __ST_MODNAME,
 			      st_cxt->probe_throttle.addr);
 
 	/* Unload the monitor */

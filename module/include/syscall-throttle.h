@@ -41,10 +41,6 @@
 
 #define __ST_MODNAME "SYSCALL-THROTTLE"
 
-#define __ST_LOG if (1)
-#define __ST_LOG_FINE if (0)
-#define __ST_LOG_FINEST if (0)
-
 #define __ST_DISPATCHER_SYMBOL_NAME "x64_sys_call"
 #define __ST_TIMER_INTERVAL 1000
 #define __ST_BASE_CRIT_LIMIT 1

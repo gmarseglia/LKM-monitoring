@@ -24,12 +24,15 @@ void update_limit_and_wake(void)
 static int __kprobes pre_handler_throttle(struct kprobe *p,
 					  struct pt_regs *regs)
 {
+	int nr;
+	ktime_t start;
+	s64 delay_ms = 0;
 
 	/* Check if the module is still running */
 	if (!__ST_IS_ON)
 		return 0;
 
-	int nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
+	nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
 
 	/* Sanity check for preemption and interrupts */
 	if (preempt_count() == 0) {
@@ -48,22 +51,16 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 		/* curr_req is used as critical request ID */
 		int curr_req = atomic_fetch_inc(&st_cxt->crit_req);
 
-		__ST_LOG_FINE pr_info(
-			"%s: probe #%05d hit, for pid %d, with ax=%d",
-			__ST_MODNAME, curr_req, current->pid, nr);
+		pr_debug("%s: probe #%05d hit, for pid %d, with ax=%d",
+			 __ST_MODNAME, curr_req, current->pid, nr);
 
 		/* If curr_avail < 0 ==> syscall has to be delayed */
 		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {
-			ktime_t start;
-			s64 delay_ms;
-
 			start = ktime_get();
 
 			/* If here, then syscall request has to be blocked */
-			__ST_LOG_FINE pr_info(
-				"%s: probe #%05d must be delayed, "
-				"curr_req=%d",
-				__ST_MODNAME, curr_req, curr_req);
+			pr_debug("%s: probe #%05d must be delayed",
+				 __ST_MODNAME, curr_req);
 
 			/* Write NULL in the kprobe context in the
 			 * per-CPU memory */
@@ -108,15 +105,10 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 				write_seqcount_end(&target_dm->count);
 			}
-
-			__ST_LOG_FINE pr_info(
-				"%s: probe #%05d has completed with delay "
-				"%lld ms",
-				__ST_MODNAME, curr_req, delay_ms);
 		}
 
-		__ST_LOG pr_info("%s: probe #%05d completed, for pid %d",
-				 __ST_MODNAME, curr_req, current->pid);
+		pr_info("%s: probe #%05d completed, with delay %lld ms",
+			__ST_MODNAME, curr_req, delay_ms);
 	}
 
 	return 0;

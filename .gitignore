@@ -61,4 +61,5 @@ dkms.conf
 *.cache/
 
 activate.sh
+test.sh
 

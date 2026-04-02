@@ -1,3 +1,4 @@
+#include "linux/kprobes.h"
 #include "syscall-throttle.h"
 
 /*
@@ -29,7 +30,6 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 		return 0;
 
 	int nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
-	struct kprobe **kprobe_context_p;
 
 	/* Sanity check for preemption and interrupts */
 	if (preempt_count() == 0) {
@@ -67,11 +67,9 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 			/* Write NULL in the kprobe context in the
 			 * per-CPU memory */
-			kprobe_context_p = this_cpu_ptr(
-				(void *)st_cxt->saved_kprobe_ctx_offset);
-
-			// this_cpu_write(kprobe_context_p, NULL);
-			*kprobe_context_p = NULL;
+			this_cpu_write(*(struct kprobe **)
+						st_cxt->saved_kprobe_ctx_offset,
+				       NULL);
 
 			/* Enable preemption */
 			atomic_inc(&st_cxt->crit_sleep);
@@ -90,8 +88,9 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			atomic_dec(&st_cxt->crit_sleep);
 
 			/* Restore kprobe context */
-			// this_cpu_write(*kprobe_context_p, p);
-			*kprobe_context_p = p;
+			this_cpu_write(*(struct kprobe **)
+						st_cxt->saved_kprobe_ctx_offset,
+				       p);
 
 			delay_ms = ktime_ms_delta(ktime_get(), start);
 

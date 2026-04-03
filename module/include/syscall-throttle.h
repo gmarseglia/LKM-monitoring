@@ -67,7 +67,7 @@ struct syscall_throttle_context {
 
 	/* For interruptible kprobes */
 	atomic_t hack_ready_on_cpu;
-	unsigned long saved_kprobe_ctx_offset;
+	struct kprobe **saved_kprobe_ctx_offset;
 
 	/* For monitoring */
 	struct mutex registry_mutex;
@@ -120,7 +120,8 @@ extern struct syscall_throttle_context *st_cxt;
 extern struct syscall_throttle_sleep_metrics *st_slp_met;
 
 int load_throttle(void);
-int load_hack_search(void);
+void unload_throttle(void);
+int try_hack_search(void);
 int load_metrics(void);
 void unload_metrics(void);
 int load_metrics_driver(void);

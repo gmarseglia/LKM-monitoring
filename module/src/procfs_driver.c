@@ -2,6 +2,7 @@
 
 struct rhash_seq_state {
 	struct rhashtable_iter iter;
+	atomic_t peek_at_start;
 };
 
 static int rhash_seq_open(struct inode *inode, struct file *file);
@@ -36,6 +37,7 @@ static int rhash_seq_open(struct inode *inode, struct file *file)
 	/* Initialize iterator */
 	ht = pde_data(inode);
 	rhashtable_walk_enter(ht, &state->iter);
+	atomic_set(&state->peek_at_start, 0);
 
 	return 0;
 }
@@ -48,11 +50,16 @@ static void *rhash_seq_start(struct seq_file *m, loff_t *pos)
 	/* This takes the RCU read lock */
 	rhashtable_walk_start(&state->iter);
 
-	/* Advance to next element and return */
-	do {
-		(*pos)++; // Increment *pos to indicate advance
-		next_entry = rhashtable_walk_next(&state->iter);
-	} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
+	if (atomic_read(&state->peek_at_start)) {
+		atomic_set(&state->peek_at_start, 1);
+		do {
+			next_entry = rhashtable_walk_peek(&state->iter);
+		} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
+	} else {
+		do {
+			next_entry = rhashtable_walk_next(&state->iter);
+		} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
+	}
 
 	return next_entry;
 }
@@ -63,11 +70,10 @@ static void *rhash_seq_next(struct seq_file *m, void *v, loff_t *pos)
 	struct string_entry *next_entry;
 
 	/* Advance to next element and return */
-
 	do {
-		(*pos)++; // Increment *pos to indicate advance
 		next_entry = rhashtable_walk_next(&state->iter);
 	} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
+	(*pos)++; // Increment *pos to indicate advance
 
 	return next_entry;
 }
@@ -77,8 +83,10 @@ static int rhash_seq_show(struct seq_file *m, void *v)
 	struct string_entry *entry = v;
 
 	/* Print if possible */
-	if (!IS_ERR_OR_NULL(v))
-		seq_printf(m, "key:%s\n", entry->string_key);
+	if (IS_ERR_OR_NULL(v))
+		return 0;
+
+	seq_printf(m, "key:%s\n", entry->string_key);
 
 	return 0;
 }
@@ -86,6 +94,8 @@ static int rhash_seq_show(struct seq_file *m, void *v)
 static void rhash_seq_stop(struct seq_file *m, void *v)
 {
 	struct rhash_seq_state *state = m->private;
+
+	atomic_set(&state->peek_at_start, 1);
 
 	/* Release the RCU read lock */
 	rhashtable_walk_stop(&state->iter);

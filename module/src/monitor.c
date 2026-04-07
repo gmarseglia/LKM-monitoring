@@ -30,40 +30,45 @@ static struct rhashtable_params registry_params = {
 	.automatic_shrinking = true,
 };
 
+/* Can't be called in atomic context */
 int register_critical_str(char *new_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
 	int ret;
 
+	/* Synchronize writers */
 	mutex_lock(&st_cxt->registry_mutex);
 
-	rcu_read_lock();
+	/* Internally takes the RCU read lock */
 	entry = rhashtable_lookup_fast(ht, new_str, registry_params);
-	rcu_read_unlock();
 
-	/* If found, then skip insert */
+	/* If entry != NULL then entry with the same key is found, then skip
+	 * insert */
 	if (entry) {
 		ret = 0;
 		goto end_register;
 	}
 
+	/* Allocate and populate the new entry */
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry) {
 		ret = -ENOMEM;
 		goto end_register;
 	}
-
-	/* Safely copy the string into our structure */
-	strscpy(entry->string_key, new_str, sizeof(entry->string_key));
+	strscpy(entry->string_key, new_str, __ST_MAX_STR_LEN);
 
 	/* Insert it. The kernel handles the bucket locking internally. */
 	ret = rhashtable_insert_fast(ht, &entry->linkage, registry_params);
+
+	/* If ret != NULL then an element with same key was already inserted,
+	 * then free the allocated new entry */
 	if (ret) {
 		kfree(entry);
 		goto end_register;
 	}
 
 end_register:
+	/* Release the writers lock */
 	mutex_unlock(&st_cxt->registry_mutex);
 	return ret;
 }
@@ -75,9 +80,7 @@ int unregister_critical_str(char *target_str, struct rhashtable *ht)
 
 	mutex_lock(&st_cxt->registry_mutex);
 
-	rcu_read_lock();
 	entry = rhashtable_lookup_fast(ht, target_str, registry_params);
-	rcu_read_unlock();
 
 	/* Not found */
 	if (!entry) {
@@ -85,32 +88,29 @@ int unregister_critical_str(char *target_str, struct rhashtable *ht)
 		goto end_unregister;
 	}
 
-	if (rhashtable_remove_fast(ht, &entry->linkage, registry_params) == 0) {
-		kfree_rcu(entry, rcu);
+	ret = rhashtable_remove_fast(ht, &entry->linkage, registry_params);
+	if (ret < 0) {
+		pr_warn("%s: unexpected error in rhashtable_remove_fast=%d",
+			__ST_MODNAME, ret);
+		goto end_unregister;
 	}
+
+	kfree_rcu(entry, rcu);
+	ret = 0;
 
 end_unregister:
 	mutex_unlock(&st_cxt->registry_mutex);
-	return 0;
+	return ret;
 }
 
 static bool is_registered_str(char *search_str, struct rhashtable *ht)
 {
 	struct string_entry *entry;
-	bool found = false;
 
-	/* Enter the RCU read-side critical section */
-	rcu_read_lock();
-
+	/* Internally takes and release the RCU lock */
 	entry = rhashtable_lookup_fast(ht, search_str, registry_params);
-	if (entry) {
-		found = true;
-	}
 
-	/* Exit the RCU read-side critical section */
-	rcu_read_unlock();
-
-	return found;
+	return entry == NULL ? false : true;
 }
 
 int register_critical_num(unsigned int nr)

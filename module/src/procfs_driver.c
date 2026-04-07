@@ -177,37 +177,66 @@ static int config_show(struct seq_file *m, void *v)
 
 int load_metrics_driver(void)
 {
+	void *ret;
+
+	/* Create the proc directory */
 	st_cxt->proc_dir = proc_mkdir(__ST_MODNAME, NULL);
 	if (!st_cxt->proc_dir)
-		return -ENOMEM;
+		goto proc_mkdir_error;
 
-	// #TODO: add return control
-	proc_create_data("program_names", 0444, st_cxt->proc_dir,
-			 &rhash_proc_ops, &st_cxt->prog_names_registry);
+	ret = proc_create_data("program_names", 0444, st_cxt->proc_dir,
+			       &rhash_proc_ops, &st_cxt->prog_names_registry);
+	if (!ret)
+		goto program_names_error;
 
-	proc_create_data("euid", 0444, st_cxt->proc_dir, &rhash_proc_ops,
-			 &st_cxt->euid_registry);
+	ret = proc_create_data("euid", 0444, st_cxt->proc_dir, &rhash_proc_ops,
+			       &st_cxt->euid_registry);
+	if (!ret)
+		goto euid_error;
 
-	proc_create_single("nr", 0444, st_cxt->proc_dir, nr_show);
+	ret = proc_create_single("nr", 0444, st_cxt->proc_dir, nr_show);
+	if (!ret)
+		goto nr_error;
 
-	proc_create_single("sleep_metrics", 0444, st_cxt->proc_dir,
-			   sleep_metrics_show);
+	ret = proc_create_single("sleep_metrics", 0444, st_cxt->proc_dir,
+				 sleep_metrics_show);
+	if (!ret)
+		goto sleep_metrics_error;
 
-	proc_create_single("delay_metrics", 0444, st_cxt->proc_dir,
-			   delay_metrics_show);
+	ret = proc_create_single("delay_metrics", 0444, st_cxt->proc_dir,
+				 delay_metrics_show);
+	if (!ret)
+		goto delay_metrics_error;
 
-	proc_create_single("config", 0444, st_cxt->proc_dir, config_show);
+	ret = proc_create_single("config", 0444, st_cxt->proc_dir, config_show);
+	if (!ret)
+		goto config_error;
 
 	return 0;
+
+config_error:
+	remove_proc_entry("delay_metrics", st_cxt->proc_dir);
+delay_metrics_error:
+	remove_proc_entry("sleep_metrics", st_cxt->proc_dir);
+sleep_metrics_error:
+	remove_proc_entry("nr", st_cxt->proc_dir);
+nr_error:
+	remove_proc_entry("euid", st_cxt->proc_dir);
+euid_error:
+	remove_proc_entry("program_names", st_cxt->proc_dir);
+program_names_error:
+	remove_proc_entry(__ST_MODNAME, NULL);
+proc_mkdir_error:
+	return -ENOMEM;
 }
 
 void unload_metrics_driver(void)
 {
-	remove_proc_entry("program_names", st_cxt->proc_dir);
-	remove_proc_entry("euid", st_cxt->proc_dir);
-	remove_proc_entry("nr", st_cxt->proc_dir);
-	remove_proc_entry("sleep_metrics", st_cxt->proc_dir);
-	remove_proc_entry("delay_metrics", st_cxt->proc_dir);
 	remove_proc_entry("config", st_cxt->proc_dir);
+	remove_proc_entry("delay_metrics", st_cxt->proc_dir);
+	remove_proc_entry("sleep_metrics", st_cxt->proc_dir);
+	remove_proc_entry("nr", st_cxt->proc_dir);
+	remove_proc_entry("euid", st_cxt->proc_dir);
+	remove_proc_entry("program_names", st_cxt->proc_dir);
 	remove_proc_entry(__ST_MODNAME, NULL);
 }

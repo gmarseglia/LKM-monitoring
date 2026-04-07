@@ -1,9 +1,7 @@
 #include "syscall-throttle.h"
 
 struct rhash_seq_state {
-	struct rhashtable *ht;
 	struct rhashtable_iter iter;
-	struct string_entry *last_entry;
 };
 
 static int rhash_seq_open(struct inode *inode, struct file *file);
@@ -28,13 +26,16 @@ static struct proc_ops rhash_proc_ops = {.proc_open = rhash_seq_open,
 static int rhash_seq_open(struct inode *inode, struct file *file)
 {
 	struct rhash_seq_state *state;
+	struct rhashtable *ht;
 
+	/* Allocate state */
 	state = __seq_open_private(file, &rhash_seq_ops, sizeof(*state));
 	if (!state)
 		return -ENOMEM;
-	state->ht = pde_data(inode);
 
-	rhashtable_walk_enter(state->ht, &state->iter);
+	/* Initialize iterator */
+	ht = pde_data(inode);
+	rhashtable_walk_enter(ht, &state->iter);
 
 	return 0;
 }
@@ -42,59 +43,52 @@ static int rhash_seq_open(struct inode *inode, struct file *file)
 static void *rhash_seq_start(struct seq_file *m, loff_t *pos)
 {
 	struct rhash_seq_state *state = m->private;
+	struct string_entry *next_entry;
 
-	/* Reset the walk */
-	if (*pos == 0) {
-		rhashtable_walk_exit(&state->iter);
-		rhashtable_walk_enter(state->ht, &state->iter);
-		state->last_entry = NULL;
-	}
-
+	/* This takes the RCU read lock */
 	rhashtable_walk_start(&state->iter);
 
-	// If new read, then get first element
-	if (*pos == 0) {
-		do {
-			state->last_entry = rhashtable_walk_next(&state->iter);
-		} while (IS_ERR(state->last_entry) &&
-			 PTR_ERR(state->last_entry) == -EAGAIN);
-	}
+	/* Advance to next element and return */
+	do {
+		(*pos)++; // Increment *pos to indicate advance
+		next_entry = rhashtable_walk_next(&state->iter);
+	} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
 
-	return state->last_entry;
+	return next_entry;
 }
 
 static void *rhash_seq_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct rhash_seq_state *state = m->private;
+	struct string_entry *next_entry;
 
-	/* Increment pos to signal not start */
-	(*pos)++;
+	/* Advance to next element and return */
 
 	do {
-		state->last_entry = rhashtable_walk_next(&state->iter);
-	} while (IS_ERR(state->last_entry) &&
-		 PTR_ERR(state->last_entry) == -EAGAIN);
+		(*pos)++; // Increment *pos to indicate advance
+		next_entry = rhashtable_walk_next(&state->iter);
+	} while (IS_ERR(next_entry) && PTR_ERR(next_entry) == -EAGAIN);
 
-	return state->last_entry;
-}
-
-static void rhash_seq_stop(struct seq_file *m, void *v)
-{
-	struct rhash_seq_state *state = m->private;
-
-	rhashtable_walk_stop(&state->iter);
+	return next_entry;
 }
 
 static int rhash_seq_show(struct seq_file *m, void *v)
 {
 	struct string_entry *entry = v;
 
-	// Safety check: skip if we somehow got an error pointer
-	if (IS_ERR_OR_NULL(v))
-		return 0;
+	/* Print if possible */
+	if (!IS_ERR_OR_NULL(v))
+		seq_printf(m, "key:%s\n", entry->string_key);
 
-	seq_printf(m, "key:%s\n", entry->string_key);
 	return 0;
+}
+
+static void rhash_seq_stop(struct seq_file *m, void *v)
+{
+	struct rhash_seq_state *state = m->private;
+
+	/* Release the RCU read lock */
+	rhashtable_walk_stop(&state->iter);
 }
 
 static int rhash_seq_release(struct inode *inode, struct file *file)
@@ -102,6 +96,7 @@ static int rhash_seq_release(struct inode *inode, struct file *file)
 	struct seq_file *m = file->private_data;
 	struct rhash_seq_state *state = m->private;
 
+	/* Close the iterator */
 	rhashtable_walk_exit(&state->iter);
 
 	return seq_release_private(inode, file);

@@ -45,13 +45,20 @@
 #define __ST_TIMER_INTERVAL 1000
 #define __ST_BASE_CRIT_LIMIT 1
 
-#define __ST_MAX_NR 323
+#define __ST_MAX_NR 512
+#define __ST_MAX_NR_MASK 0x01FF
 #define __ST_MAX_STR_LEN 64
 #define __ST_METRICS_SCALING_FACTOR 100000
 
 #define __ST_FLAG_ON 0
 #define __ST_FLAGS &st_cxt->flags
 #define __ST_IS_ON test_bit(__ST_FLAG_ON, __ST_FLAGS)
+#define __ST_SET_NR_REGISTRY(nr)                                               \
+	set_bit(nr &__ST_MAX_NR_MASK, st_cxt->nr_registry)
+#define __ST_CLEAR_NR_REGISTRY(nr)                                             \
+	clear_bit(nr &__ST_MAX_NR_MASK, st_cxt->nr_registry)
+#define __ST_TEST_NR_REGISTRY(nr)                                             \
+	test_bit(nr &__ST_MAX_NR_MASK, st_cxt->nr_registry)
 
 DECLARE_PER_CPU(struct syscall_throttle_delay_metrics, st_dly_met);
 

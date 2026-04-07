@@ -115,15 +115,13 @@ static bool is_registered_str(char *search_str, struct rhashtable *ht)
 
 int register_critical_num(unsigned int nr)
 {
-	// #TODO: add limit check?
-	set_bit(nr, st_cxt->nr_registry);
+	__ST_SET_NR_REGISTRY(nr);
 	return 0;
 }
 
 int unregister_critical_num(unsigned int nr)
 {
-	// #TODO: add limit check?
-	clear_bit(nr, st_cxt->nr_registry);
+	__ST_CLEAR_NR_REGISTRY(nr);
 	return 0;
 }
 
@@ -135,7 +133,7 @@ inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 	st_qr->is_critical = false;
 
 	/* Check syscall */
-	if (!test_bit(st_qr->nr, st_cxt->nr_registry)) {
+	if (!__ST_TEST_NR_REGISTRY(st_qr->nr)) {
 		return false;
 	}
 
@@ -162,7 +160,6 @@ inline bool is_critical(struct syscall_throttle_query_result *st_qr)
 			st_qr->type = "EUID";
 		}
 	}
-
 
 	return st_qr->is_critical;
 }

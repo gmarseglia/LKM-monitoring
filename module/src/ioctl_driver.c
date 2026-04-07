@@ -143,14 +143,13 @@ void unload_driver(void)
 {
 	destroy_device();
 
-	// #TODO: check if devices are still open
 	unregister_chrdev(st_cxt->Major, __ST_MODNAME);
 }
 
 static int create_device(void)
 {
 	st_cxt->my_class = class_create(__ST_MODNAME);
-	if (IS_ERR(st_cxt->my_class)) { // #TODO: what is this?
+	if (IS_ERR(st_cxt->my_class)) {
 		unregister_chrdev(st_cxt->Major, __ST_MODNAME);
 		return PTR_ERR(st_cxt->my_class);
 	}

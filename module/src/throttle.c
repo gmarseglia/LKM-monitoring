@@ -1,4 +1,3 @@
-#include "linux/kprobes.h"
 #include "syscall-throttle.h"
 
 /*
@@ -25,6 +24,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 					  struct pt_regs *regs)
 {
 	int curr_req;
+	int ret = 0;
 	ktime_t start;
 	s64 delay_ms = 0;
 	struct syscall_throttle_query_result st_qr;
@@ -72,10 +72,13 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 
 			/* Go to sleep, and wake up when under limit or when
 			 * throttling is off */
-			wait_event_interruptible(
+			ret = wait_event_interruptible(
 				st_cxt->critical_sleeping_wq,
 				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
 					!__ST_IS_ON);
+
+			printk("%s: wait_event_interruptible returned %d.\n",
+			       __ST_MODNAME, ret);
 
 			/* Disable premption */
 			preempt_disable();
@@ -104,7 +107,15 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 			 __ST_MODNAME, curr_req, delay_ms);
 	}
 
-	return 0;
+	if (ret == 0) {
+		return 0;
+	} else {
+		unsigned long ret_addr = *(unsigned long *)regs->sp;
+		regs->ip = ret_addr;
+		regs->sp += sizeof(long);
+		regs->ax = -EPERM;
+		return 1;
+	}
 }
 
 /*

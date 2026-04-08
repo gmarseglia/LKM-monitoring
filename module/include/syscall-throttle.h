@@ -42,7 +42,7 @@
 #define __ST_MODNAME "SYSCALL-THROTTLE"
 
 #define __ST_DISPATCHER_SYMBOL_NAME "x64_sys_call"
-#define __ST_TIMER_INTERVAL 1000
+#define __ST_TIMER_INTERVAL 1000*5
 #define __ST_BASE_CRIT_LIMIT 1
 
 #define __ST_MAX_NR 512

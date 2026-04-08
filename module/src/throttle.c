@@ -7,7 +7,7 @@
 */
 void update_limit_and_wake(void)
 {
-	/* Updates the limits according the number of requests */
+	/* Updates the available token, as the current limit */
 	atomic_set(&st_cxt->crit_avail, atomic_read(&st_cxt->crit_limit));
 
 	/* Wakes up the event wait queue */

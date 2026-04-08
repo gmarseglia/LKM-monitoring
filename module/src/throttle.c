@@ -1,3 +1,6 @@
+#include "asm/syscall.h"
+#include "linux/compiler_attributes.h"
+#include "linux/printk.h"
 #include "syscall-throttle.h"
 
 /*
@@ -14,6 +17,51 @@ void update_limit_and_wake(void)
 	wake_up_interruptible(&st_cxt->critical_sleeping_wq);
 }
 
+static unsigned long __st_dispatcher_addr;
+
+static noinline void __st_throttle(void)
+{
+	msleep(1000);
+	return;
+}
+
+static __attribute__((naked)) noinline void __st_dispatcher_pre_handler(void)
+{
+	asm volatile("push %rdi\n\t"
+		     "push %rsi\n\t"
+		     "push %rdx\n\t"
+		     "push %rcx\n\t"
+		     "push %rax\n\t"
+		     "push %r8\n\t"
+		     "push %r9\n\t"
+		     "push %r10\n\t"
+		     "push %r11\n\t"
+		     "push %rbx\n\t"
+		     "push %rbp\n\t"
+		     "push %r12\n\t"
+		     "push %r13\n\t"
+		     "push %r14\n\t"
+		     "push %r15\n\t");
+	asm volatile("call *%0" : : "r"(__st_throttle));
+	asm volatile("pop %r15\n\t"
+		     "pop %r14\n\t"
+		     "pop %r13\n\t"
+		     "pop %r12\n\t"
+		     "pop %rbp\n\t"
+		     "pop %rbx\n\t"
+		     "pop %r11\n\t"
+		     "pop %r10\n\t"
+		     "pop %r9\n\t"
+		     "pop %r8\n\t"
+		     "pop %rax\n\t"
+		     "pop %rcx\n\t"
+		     "pop %rdx\n\t"
+		     "pop %rsi\n\t"
+		     "pop %rdi\n\t");
+
+	asm volatile("jmp *%0" : : "r"(__st_dispatcher_addr + 5));
+}
+
 /*
   Pre-handler for the dispatcher:
     1. Checks if the syscall request is critical
@@ -23,12 +71,7 @@ void update_limit_and_wake(void)
 static int __kprobes pre_handler_throttle(struct kprobe *p,
 					  struct pt_regs *regs)
 {
-	int curr_req;
-	int ret = 0;
-	ktime_t start;
-	s64 delay_ms = 0;
 	struct syscall_throttle_query_result st_qr;
-	struct syscall_throttle_delay_metrics *target_dm;
 
 	/* Check if the module is still running */
 	if (!__ST_IS_ON)
@@ -48,74 +91,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	st_qr.nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
 
 	if (unlikely(is_critical(&st_qr))) {
-		/* curr_req is used as critical request ID */
-		curr_req = atomic_fetch_inc(&st_cxt->crit_req);
-
-		pr_debug("%s: probe #%05d hit, with ax=%d\n", __ST_MODNAME,
-			 curr_req, st_qr.nr);
-
-		/* If curr_avail < 0 ==> syscall has to be delayed */
-		if (atomic_dec_return(&st_cxt->crit_avail) < 0) {
-			start = ktime_get();
-			atomic_inc(&st_cxt->crit_sleep);
-
-			/* If here, then syscall request has to be blocked */
-			pr_debug("%s: probe #%05d must be delayed\n",
-				 __ST_MODNAME, curr_req);
-
-			/* Write NULL in the kprobe context in the
-			 * per-CPU memory */
-			this_cpu_write(*st_cxt->saved_kprobe_ctx_offset, NULL);
-
-			/* Enable preemption */
-			preempt_enable();
-
-			/* Go to sleep, and wake up when under limit or when
-			 * throttling is off */
-			ret = wait_event_interruptible(
-				st_cxt->critical_sleeping_wq,
-				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
-					!__ST_IS_ON);
-
-			printk("%s: wait_event_interruptible returned %d.\n",
-			       __ST_MODNAME, ret);
-
-			/* Disable premption */
-			preempt_disable();
-
-			/* Restore kprobe context */
-			this_cpu_write(*st_cxt->saved_kprobe_ctx_offset, p);
-
-			atomic_dec(&st_cxt->crit_sleep);
-
-			/* Update per-CPU metrics */
-			delay_ms = ktime_ms_delta(ktime_get(), start);
-			target_dm = this_cpu_ptr(&st_dly_met);
-			if (delay_ms > target_dm->max_delay_ms) {
-				write_seqcount_begin(&target_dm->count);
-
-				target_dm->max_delay_ms = delay_ms;
-				memcpy(&target_dm->qr, &st_qr,
-				       sizeof(struct
-					      syscall_throttle_query_result));
-
-				write_seqcount_end(&target_dm->count);
-			}
-		}
-
-		pr_debug("%s: probe #%05d completed, with delay %lld ms\n",
-			 __ST_MODNAME, curr_req, delay_ms);
-	}
-
-	if (ret == 0) {
-		return 0;
-	} else {
-		unsigned long ret_addr = *(unsigned long *)regs->sp;
-		regs->ip = ret_addr;
-		regs->sp += sizeof(long);
-		regs->ax = -EPERM;
+		regs->ip = (unsigned long)__st_dispatcher_pre_handler;
 		return 1;
 	}
+
+	return 0;
 }
 
 /*
@@ -134,6 +114,8 @@ int load_throttle(void)
 		       __ST_MODNAME, __ST_DISPATCHER_SYMBOL_NAME, ret);
 		return ret;
 	}
+
+	__st_dispatcher_addr = (unsigned long)st_cxt->probe_throttle.addr;
 
 	return 0;
 }

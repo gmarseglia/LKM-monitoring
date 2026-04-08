@@ -78,6 +78,8 @@ static void exitfn(void)
 	*/
 	clear_bit(__ST_FLAG_ON, __ST_FLAGS);
 
+	msleep(2000);
+
 	/* Unload the drivers */
 	unload_metrics_driver();
 	unload_driver();

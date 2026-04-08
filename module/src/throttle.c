@@ -19,13 +19,13 @@ void update_limit_and_wake(void)
 
 static unsigned long __st_dispatcher_addr;
 
-static noinline void __st_throttle(void)
+static noinline void throttle(void)
 {
 	msleep(1000);
 	return;
 }
 
-static __attribute__((naked)) noinline void __st_dispatcher_pre_handler(void)
+static __attribute__((naked)) noinline void dispatcher_inner_pre_handler(void)
 {
 	asm volatile("push %rdi\n\t"
 		     "push %rsi\n\t"
@@ -42,7 +42,7 @@ static __attribute__((naked)) noinline void __st_dispatcher_pre_handler(void)
 		     "push %r13\n\t"
 		     "push %r14\n\t"
 		     "push %r15\n\t");
-	asm volatile("call *%0" : : "r"(__st_throttle));
+	asm volatile("call *%0" : : "r"(throttle));
 	asm volatile("pop %r15\n\t"
 		     "pop %r14\n\t"
 		     "pop %r13\n\t"
@@ -77,21 +77,11 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 	if (!__ST_IS_ON)
 		return 0;
 
-	/* Sanity check for preemption and interrupts */
-	if (preempt_count() == 0) {
-		pr_alert("%s: found preemptable, aborting.\n", __ST_MODNAME);
-		return 0;
-	}
-	if (irqs_disabled()) {
-		pr_alert("%s: irqs are disabled, aborting.\n", __ST_MODNAME);
-		return 0;
-	}
-
 	/* If syscall request is critical */
 	st_qr.nr = syscall_get_nr(current, (struct pt_regs *)regs->di);
 
 	if (unlikely(is_critical(&st_qr))) {
-		regs->ip = (unsigned long)__st_dispatcher_pre_handler;
+		regs->ip = (unsigned long)dispatcher_inner_pre_handler;
 		return 1;
 	}
 

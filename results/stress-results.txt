@@ -1,0 +1,31 @@
+No module:
+--- Latency Percentiles ---
+p50 (Median) : 454.000 nsec
+p90          : 483.000 nsec
+p99          : 532.000 nsec
+p99.9        : 3634.000 nsec
+p100 (Max)   : 289268.000 nsec
+
+Yes module, off:
+--- Latency Percentiles ---
+p50 (Median) : 489.000 nsec
+p90          : 519.000 nsec
+p99          : 583.000 nsec
+p99.9        : 4534.000 nsec
+p100 (Max)   : 311784.000 nsec
+
+Yes module, on, no nr:
+--- Latency Percentiles ---
+p50 (Median) : 491.000 nsec
+p90          : 523.000 nsec
+p99          : 588.000 nsec
+p99.9        : 3458.000 nsec
+p100 (Max)   : 1293014.000 nsec
+
+Yes module, on, yes nr, no program_name or euid (512 registered each):
+--- Latency Percentiles ---
+p50 (Median) : 553.000 nsec
+p90          : 588.000 nsec
+p99          : 725.000 nsec
+p99.9        : 5461.000 nsec
+p100 (Max)   : 270450.000 nsec

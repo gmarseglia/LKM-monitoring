@@ -488,6 +488,79 @@ This allows to have 6 operations available, which are called as the following sc
 
 ## 3. Performance analysis
 
+The following table shows the impact of the LKM in term of performance for non-critical system call invocations.
+
+| Test | p50 $\text{nsec}$ | p90 $\text{nsec}$ | p99 $\text{nsec}$ |
+| - | - | - | - |
+| Module not inserted | $454$ | $483$ | $532$ |
+| Module inserted, is off | $489$ | $519$ | $583$ |
+| Module inserted, is on, nr is not registered | $491$ | $523$ | $588$ |
+| Module inserted, is on, nr is registered, euid and program name are not registered (0 registered each) | $542$ | $577$ | $690$ |
+| Module inserted, is on, nr is registered, euid and program name are not registered (512 registered each) | $553$ | $588$ | $725$ |
+
 ## 4. Future works
 
 ### 4.1 Avoiding hacked `kprobe`
+
+A proof-of-concept alternative throttling mechanism has been implemented in the `experimental` branch, in order to **avoid hacking the preemptable `krpobe`**.
+
+This mechanism is based on the machine-dependent capabilities of the pre-handler to alter the CPU registry, in particular the Instruction Pointer (`ip`) register, by modifying the `pt_regs`.
+
+```c
+static noinline void throttle(void)
+{
+	// POC
+	msleep(1000);
+	return;
+}
+
+static __attribute__((naked)) noinline void dispatcher_inner_pre_handler(void)
+{
+	// Save the register state on the stack
+	asm volatile("push %rdi\n\t"
+		     "push %rsi\n\t"
+		     "push %rdx\n\t"
+		     "push %rcx\n\t"
+		     "push %rax\n\t"
+		     "push %r8\n\t"
+		     "push %r9\n\t"
+		     "push %r10\n\t"
+		     "push %r11\n\t"
+		     "push %rbx\n\t"
+		     "push %rbp\n\t"
+		     "push %r12\n\t"
+		     "push %r13\n\t"
+		     "push %r14\n\t"
+		     "push %r15\n\t");
+	// Call the function that will do the blocking and metrics --> this preservers the stack
+	asm volatile("call *%0" : : "r"(throttle));
+	// Recover the register state
+	asm volatile("pop %r15\n\t"
+		     "pop %r14\n\t"
+		     "pop %r13\n\t"
+		     "pop %r12\n\t"
+		     "pop %rbp\n\t"
+		     "pop %rbx\n\t"
+		     "pop %r11\n\t"
+		     "pop %r10\n\t"
+		     "pop %r9\n\t"
+		     "pop %r8\n\t"
+		     "pop %rax\n\t"
+		     "pop %rcx\n\t"
+		     "pop %rdx\n\t"
+		     "pop %rsi\n\t"
+		     "pop %rdi\n\t");
+	// Jump to the dispatcher function body, avoiding the initial JMP instruction installed by the probe
+	asm volatile("jmp *%0" : : "r"(__st_dispatcher_addr + 5));
+}
+
+static int __kprobes pre_handler_throttle(struct kprobe *p, struct pt_regs *regs)
+{
+	...
+	if (unlikely(is_critical(&st_qr))) {
+		regs->ip = (unsigned long)dispatcher_inner_pre_handler;
+		return 1;
+	}
+	...
+}
+```

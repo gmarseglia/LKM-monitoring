@@ -22,6 +22,14 @@ p99          : 588.000 nsec
 p99.9        : 3458.000 nsec
 p100 (Max)   : 1293014.000 nsec
 
+Yes module, on, yes nr, no program_name or euid (0 registered each):
+--- Latency Percentiles ---
+p50 (Median) : 542.000 nsec
+p90          : 577.000 nsec
+p99          : 690.000 nsec
+p99.9        : 6975.000 nsec
+p100 (Max)   : 273074.000 nsec
+
 Yes module, on, yes nr, no program_name or euid (512 registered each):
 --- Latency Percentiles ---
 p50 (Median) : 553.000 nsec

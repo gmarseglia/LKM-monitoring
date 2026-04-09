@@ -77,9 +77,6 @@ static int __kprobes pre_handler_throttle(struct kprobe *p,
 				atomic_dec_return(&st_cxt->crit_avail) >= 0 ||
 					!__ST_IS_ON);
 
-			printk("%s: wait_event_interruptible returned %d.\n",
-			       __ST_MODNAME, ret);
-
 			/* Disable premption */
 			preempt_disable();
 

@@ -52,7 +52,7 @@ ioctl.out 6 user.out
 ioctl.out 0
 ```
 
-### 1.3 Obseravability via `procfs`
+### 1.3 Observability via `procfs`
 
 The module exports real-time metrics and configurations to the `/proc/SYSCALL-THROTTLE` directory.
 These values can be inspected using `cat`:
@@ -66,13 +66,13 @@ These values can be inspected using `cat`:
 | `sleep_metrics` | The max and average number of threads that had to be put to sleep. |
 | `delay_metrics` | The peak delay experienced by an actual system call execution and the program/user responsible. |
 
-### 1.4 Testing utilites
+### 1.4 Testing utilities
 
 Two test programs are provided:
 
 `user.out`: Continuously performs `read()` calls from `/dev/null` in a loop. Allows to interrupt with `SIGINT` up to 3 times.
 
-`stress.out`: Executes a tight loop of 1M writes to `/dev/null` across 50 iterations and calculates the mean and standard deviation of execution times. This program enables the obsercation of the injected delay.
+`stress.out`: Executes a loop of 1M reads from `/dev/null` and calculates the percentiles of execution times. This program enables the observation of the injected delay.
 
 ## 2. Implementation details
 
@@ -225,12 +225,12 @@ void update_limit_and_wake(void)
 ```
 
 In particular the wake up condition is composed by two parts:
-- `atomic_dec_return(&st_cxt->crit_avail) >= 0`: this condition allows only at most `crit_avail` sleeping threads to "really" wake up, **avoiding the thunderig herd effect**.
+- `atomic_dec_return(&st_cxt->crit_avail) >= 0`: this condition allows only at most `crit_avail` sleeping threads to "really" wake up, **avoiding the thundering herd effect**.
 - The macro `__ST_IS_ON` expands to `test_bit(__ST_FLAG_ON, __ST_FLAGS)`: this condition allows to wake up all the threads if the flag `__ST_FLAG_ON` is set to `false`. This is used when shutting down the throttling mechanism.
 
-#### 2.4.1 Hacked preemptable `kprobe`
+#### 2.4.1 Hacked preemptible `kprobe`
 
-Natively the `kprobe` pre-handler runs in an **unpreemptable context**, which does not allow to call blocking APIs like `wait_event_interruptible`. Since these are mandatory to ensure the functionality of the throttling mechanism, an **hack** has been integrated that allows the `kprobe` pre-handler to call blocking APIs.
+Natively the `kprobe` pre-handler runs in an **unpreemptible context**, which does not allow to call blocking APIs like `wait_event_interruptible`. Since these are mandatory to ensure the functionality of the throttling mechanism, an **hack** has been integrated that allows the `kprobe` pre-handler to call blocking APIs.
 
 The hack involves the following steps:
 
@@ -403,7 +403,7 @@ static int __kprobes pre_handler_throttle(struct kprobe *p, struct pt_regs *regs
 }
 ```
 
-In this way, a malicious actor ca not hit repeatedly a thread with a signal to make it avoid the critical limit. 
+In this way, a malicious actor can not hit repeatedly a thread with a signal to make it avoid the critical limit. 
 
 #### 2.6.2 `rmmod` handling
 
@@ -445,7 +445,7 @@ A future work can be to switch this `msleep` mechanism to a more sophisticated `
 
 #### 2.6.3 `procfs` with `seq_file` magic
 
-In order to display the registered eUIDs and program names in `procfs`, the `seq_file` API has been implemented together with the `rhastable_walk_*` functions of the rhashtable, to ensure respect of the RCU and to allow to display an arbitraty amount of characters.
+In order to display the registered eUIDs and program names in `procfs`, the `seq_file` API has been implemented together with the `rhashtable_walk_*` functions of the rhashtable, to ensure respect of the RCU and to allow to display an arbitrary amount of characters.
 
 The `seq_file` exposes these function:
 ```c
@@ -457,7 +457,7 @@ static struct seq_operations rhash_seq_ops = {
 };
 ```
 
-These can be bound the driver of a `procfs` file in the following way:
+These can be bound to the driver of a `procfs` file in the following way:
 ```c
 static struct proc_ops rhash_proc_ops = {
 	.proc_open = rhash_seq_open,
@@ -502,7 +502,7 @@ The following table shows the impact of the LKM in term of performance for non-c
 
 ### 4.1 Avoiding hacked `kprobe`
 
-A proof-of-concept alternative throttling mechanism has been implemented in the `experimental` branch, in order to **avoid hacking the preemptable `krpobe`**.
+A proof-of-concept alternative throttling mechanism has been implemented in the `experimental` branch, in order to **avoid hacking the preemptible `kprobe`**.
 
 This mechanism is based on the machine-dependent capabilities of the pre-handler to alter the CPU registry, in particular the Instruction Pointer (`ip`) register, by modifying the `pt_regs`.
 

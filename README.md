@@ -3,6 +3,14 @@ A Linux Kernel Module (LKM) implementing a system call throttling mechanism.
 
 The specification of the LKM can be found at this [link](https://francescoquaglia.github.io/TEACHING/AOS/CURRENT/PROJECTS/project-specification-2025-2026.html).
 
+## 0 System information
+
+This Linux Kernel Module has been developed and tested on a machine with the following hardware architecture and kernel version:
+```
+$ uname -a
+> Linux debian 6.12.73+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.73-1 (2026-02-17) x86_64 GNU/Linux
+```
+
 ## 1 Basic usage 
 
 ### 1.1 Compilation and installation

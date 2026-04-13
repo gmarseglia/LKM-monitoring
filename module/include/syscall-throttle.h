@@ -48,7 +48,7 @@
 #define __ST_MAX_NR 512
 #define __ST_MAX_NR_MASK 0x01FF
 #define __ST_MAX_STR_LEN 64
-#define __ST_METRICS_SCALING_FACTOR 100000
+#define __ST_METRICS_SCALING_FACTOR 1000
 
 #define __ST_FLAG_ON 0
 #define __ST_FLAGS &st_cxt->flags
@@ -105,7 +105,8 @@ struct syscall_throttle_context {
 struct syscall_throttle_sleep_metrics {
 	spinlock_t lock;
 	unsigned long max_sleep;
-	unsigned long avg_sleep;
+	unsigned long last_sleep;
+	unsigned long total_sleep;
 	unsigned long units_passed;
 };
 

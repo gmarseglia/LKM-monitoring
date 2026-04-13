@@ -11,20 +11,14 @@ void update_sleep_metrics(void)
 	if (!__ST_IS_ON)
 		return;
 
-	curr_sleep =
-		atomic_read(&st_cxt->crit_sleep) * __ST_METRICS_SCALING_FACTOR;
+	curr_sleep = atomic_read(&st_cxt->crit_sleep);
 
 	spin_lock_bh(&st_slp_met->lock); // #TODO: investigate more on _bh
 
-	/* Update max sleep */
-	st_slp_met->max_sleep = MAX(curr_sleep, st_slp_met->max_sleep);
-
-	/* Update mean sleep with online method */
 	st_slp_met->units_passed++;
-	st_slp_met->avg_sleep =
-		(st_slp_met->avg_sleep * (st_slp_met->units_passed - 1) +
-		 curr_sleep) /
-		st_slp_met->units_passed;
+	st_slp_met->max_sleep = MAX(curr_sleep, st_slp_met->max_sleep);
+	st_slp_met->total_sleep += curr_sleep;
+	st_slp_met->last_sleep = curr_sleep;
 
 	spin_unlock_bh(&st_slp_met->lock);
 }

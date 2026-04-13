@@ -124,16 +124,27 @@ static int nr_show(struct seq_file *m, void *v)
 
 static int sleep_metrics_show(struct seq_file *m, void *v)
 {
-	unsigned long avg_sleep, max_sleep;
+	unsigned long total_sleep, max_sleep, last_sleep, units_passed;
 
 	spin_lock(&st_slp_met->lock);
-	avg_sleep = st_slp_met->avg_sleep;
+	total_sleep = st_slp_met->total_sleep;
 	max_sleep = st_slp_met->max_sleep;
+	last_sleep = st_slp_met->last_sleep;
+	units_passed = st_slp_met->units_passed;
 	spin_unlock(&st_slp_met->lock);
 
-	seq_printf(m, "avg_sleep=%ld\nmax_sleep=%ld\n",
-		   avg_sleep / __ST_METRICS_SCALING_FACTOR,
-		   max_sleep / __ST_METRICS_SCALING_FACTOR);
+	unsigned long avg_sleep, avg_integer, avg_decimal;
+
+	avg_sleep = (total_sleep * __ST_METRICS_SCALING_FACTOR) / units_passed;
+	avg_integer = avg_sleep / __ST_METRICS_SCALING_FACTOR;
+	avg_decimal = avg_sleep - (avg_integer * __ST_METRICS_SCALING_FACTOR);
+
+	seq_printf(m,
+		   "avg_sleep=%ld.%ld\nmax_sleep=%ld\nlast_sleep=%ld\nunits_"
+		   "passed="
+		   "%ld\n",
+		   avg_integer, avg_decimal, max_sleep, last_sleep,
+		   units_passed);
 
 	return 0;
 }
